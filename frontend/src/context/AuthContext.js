@@ -28,10 +28,11 @@ export function AuthProvider({ children }) {
     }
   }
 
-  async function login(email, password) {
+  async function login(email, password, role) {
     const res = await api.post('/auth/login', {
       email,
       password,
+      role,
     });
 
     await AsyncStorage.setItem('token', res.data.token);

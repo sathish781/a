@@ -7,41 +7,48 @@ import AppButton from '../components/AppButton';
 import AppScrollView from '../components/AppScrollView';
 import AppHeader from '../components/AppHeader';
 import { useAuth } from '../context/AuthContext';
+import { radius } from '../utils/theme';
+
 import { useThemeMode } from '../context/ThemeContext';
 
-function FeatureCard({ icon, title, text, button, onPress }) {
+function FeatureCard({ icon, title, text, onPress }) {
   const { theme } = useThemeMode();
-
   return (
-    <GlassCard>
-      <Text style={styles.cardIcon}>{icon}</Text>
+    <GlassCard style={styles.gridCard}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.iconCircle, { backgroundColor: theme.mode === 'light' ? '#f8fafc' : '#090a14', borderColor: theme.glassBorder }]}>
+          <Text style={styles.gridCardIcon}>{icon}</Text>
+        </View>
+      </View>
 
-      <Text style={[styles.cardTitle, { color: theme.white }]}>
+      <Text style={[styles.gridCardTitle, { color: theme.text }]} numberOfLines={2}>
         {title}
       </Text>
 
-      <Text style={[styles.cardText, { color: theme.muted }]}>
+      <Text style={[styles.gridCardText, { color: theme.muted }]} numberOfLines={3}>
         {text}
       </Text>
 
-      <AppButton title={button} onPress={onPress} />
+      <AppButton title="OPEN" onPress={onPress} />
     </GlassCard>
   );
 }
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
-  const { theme, themeMode } = useThemeMode();
+  const { theme } = useThemeMode();
 
   function openDashboard() {
     if (user?.role === 'student') {
       navigation.navigate('StudentDashboard');
-    } else if (user?.role === 'library_staff') {
+    } else if (user?.role === 'library' || user?.role === 'library_staff') {
       navigation.navigate('LibraryDashboard');
-    } else if (user?.role === 'shop_owner') {
+    } else if (user?.role === 'shop' || user?.role === 'shop_owner') {
       navigation.navigate('ShopDashboard');
     } else if (user?.role === 'admin') {
       navigation.navigate('AdminRoleDashboard');
+    } else {
+      navigation.navigate('StudentDashboard');
     }
   }
 
@@ -50,82 +57,87 @@ export default function HomeScreen({ navigation }) {
       <AppScrollView contentContainerStyle={styles.container}>
         <AppHeader
           icon="📚"
-          label={`Welcome, ${user?.name}`}
+          label={`Welcome, ${user?.name || user?.shopName || user?.libraryName || 'User'}`}
           title="BookConnect"
           subtitle="Find books from library, local shops, and student marketplace."
         />
 
+        {/* Hero Banner */}
         <GlassCard style={styles.hero}>
-          <Text style={styles.heroIcon}>📘</Text>
+          <View style={[styles.heroBadgeCircle, { backgroundColor: theme.mode === 'light' ? '#f8fafc' : '#090a14', borderColor: theme.primary }]}>
+            <Text style={styles.heroIcon}>📘</Text>
+          </View>
 
-          <Text style={[styles.heroTitle, { color: theme.white }]}>
+          <Text style={[styles.heroTitle, { color: theme.text }]}>
             One Search, Three Sources
           </Text>
 
           <Text style={[styles.heroText, { color: theme.muted }]}>
-            Borrow from library, buy from local shop, or exchange with students.
+            Borrow from library, buy from local shop, or exchange with students directly.
           </Text>
 
           <View style={styles.badgeRow}>
-            <Text style={[styles.badge, { color: theme.white }]}>
-              {user?.role}
-            </Text>
+            <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: theme.mode === 'light' ? 'rgba(220, 38, 38, 0.08)' : 'rgba(255, 0, 60, 0.15)' }]}>
+              <Text style={[styles.redBadgeText, { color: theme.primary }]}>Role: {user?.role || 'student'}</Text>
+            </View>
 
-            <Text style={[styles.badge, { color: theme.white }]}>
-              {themeMode === 'dark' ? 'Dark Mode' : 'Light Mode'}
-            </Text>
+            <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: theme.mode === 'light' ? 'rgba(220, 38, 38, 0.08)' : 'rgba(255, 0, 60, 0.15)' }]}>
+              <Text style={[styles.redBadgeText, { color: theme.primary }]}>Mode: {theme.mode === 'light' ? 'White Light' : 'Dark Mode'}</Text>
+            </View>
           </View>
 
-          <AppButton title="Open My Dashboard" onPress={openDashboard} />
+          <AppButton
+            title="OPEN MY DASHBOARD →"
+            onPress={openDashboard}
+            style={{ width: '100%', marginTop: 8 }}
+          />
         </GlassCard>
 
-        <FeatureCard
-          icon="🔎"
-          title="Smart Search"
-          text="Search by book name, author, ISBN, course, subject, semester, or exam."
-          button="Search Books"
-          onPress={() => navigation.navigate('Search')}
-        />
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Explore Features</Text>
 
-        <FeatureCard
-          icon="📸"
-          title="Sell Book With Photo"
-          text="Take book photo, set price, condition, and upload to marketplace."
-          button="Upload Book"
-          onPress={() => navigation.navigate('SellBook')}
-        />
+        <View style={styles.gridContainer}>
+          <FeatureCard
+            icon="🔎"
+            title="Smart Search"
+            text="Find books by name, author, or subject instantly."
+            onPress={() => navigation.navigate('Search')}
+          />
 
-        <FeatureCard
-          icon="💰"
-          title="Price Comparison"
-          text="Compare student seller price, local shop price, and library availability."
-          button="Compare Now"
-          onPress={() => navigation.navigate('Search')}
-        />
+          <FeatureCard
+            icon="📸"
+            title="Sell Books"
+            text="Take a photo, set a price, and post your listing."
+            onPress={() => navigation.navigate('SellBook')}
+          />
 
-        <FeatureCard
-          icon="🔁"
-          title="Book Exchange"
-          text="Send exchange request and wait for the other student to accept."
-          button="Exchange Requests"
-          onPress={() => navigation.navigate('Exchange')}
-        />
+          <FeatureCard
+            icon="💰"
+            title="Compare Prices"
+            text="Check library vs student vs shop prices easily."
+            onPress={() => navigation.navigate('Search')}
+          />
 
-        <FeatureCard
-          icon="🎁"
-          title="Book Donation"
-          text="Donate books to juniors or request donated books from others."
-          button="Open Donation"
-          onPress={() => navigation.navigate('Donate')}
-        />
+          <FeatureCard
+            icon="🔁"
+            title="Book Exchange"
+            text="Swap books directly with other campus students."
+            onPress={() => navigation.navigate('Exchange')}
+          />
 
-        <FeatureCard
-          icon="🔔"
-          title="Smart Notifications"
-          text="Track reservation, donation, exchange, and availability updates."
-          button="View Alerts"
-          onPress={() => navigation.navigate('Notifications')}
-        />
+          <FeatureCard
+            icon="🎁"
+            title="Donate Books"
+            text="Give away books or request book donations."
+            onPress={() => navigation.navigate('Donate')}
+          />
+
+          <FeatureCard
+            icon="🔔"
+            title="Alerts & Updates"
+            text="Track your reservations and request updates."
+            onPress={() => navigation.navigate('Notifications')}
+          />
+        </View>
       </AppScrollView>
     </GlassScreen>
   );
@@ -133,56 +145,104 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 18,
+    padding: 16,
   },
   hero: {
     alignItems: 'center',
     paddingVertical: 28,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  heroBadgeCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    shadowColor: '#dc2626',
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 4,
   },
   heroIcon: {
-    fontSize: 62,
-    marginBottom: 8,
+    fontSize: 38,
   },
   heroTitle: {
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: '900',
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   heroText: {
     textAlign: 'center',
     lineHeight: 22,
+    fontSize: 14,
     marginVertical: 12,
+    paddingHorizontal: 10,
   },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 8,
+    marginBottom: 16,
     justifyContent: 'center',
+    gap: 8,
   },
-  badge: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.24)',
-    paddingHorizontal: 12,
+  redBadge: {
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    marginHorizontal: 4,
-    marginVertical: 4,
-    fontWeight: '900',
+  },
+  redBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
     textTransform: 'capitalize',
   },
-  cardIcon: {
-    fontSize: 38,
-    marginBottom: 8,
-  },
-  cardTitle: {
+  sectionTitle: {
     fontSize: 20,
     fontWeight: '900',
+    marginBottom: 14,
+    marginLeft: 4,
+    letterSpacing: 0.2,
   },
-  cardText: {
-    marginTop: 6,
-    marginBottom: 8,
-    lineHeight: 21,
-    fontWeight: '600',
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: '48%',
+    padding: 14,
+    marginVertical: 6,
+  },
+  cardHeader: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  iconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridCardIcon: {
+    fontSize: 26,
+  },
+  gridCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  gridCardText: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 12,
+    flex: 1,
   },
 });

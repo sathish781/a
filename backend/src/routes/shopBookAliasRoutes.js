@@ -1,17 +1,18 @@
-const express = require('express');
+﻿const express = require('express');
 
 const { addShopBook } = require('../controllers/shopController');
 
-const protect = require('../middleware/authMiddleware');
-const allowRoles = require('../middleware/roleMiddleware');
+const { protect } = require('../middleware/authMiddleware');
+const { authorize } = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
 router.post(
   '/',
   protect,
-  allowRoles('shop_owner', 'admin'),
+  authorize('shop', 'admin'),
   addShopBook
 );
 
 module.exports = router;
+

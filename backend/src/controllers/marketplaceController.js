@@ -1,163 +1,185 @@
 const Book = require('../models/Book');
-const StudentBook = require('../models/StudentBook');
-const Donation = require('../models/Donation');
-const User = require('../models/User');
+const Marketplace = require('../models/Marketplace');
+const Order = require('../models/Order');
+const Notification = require('../models/Notification');
 const asyncHandler = require('../utils/asyncHandler');
 
+// @desc  Get all marketplace listings
+// @route GET /api/marketplace
 const getMarketplaceListings = asyncHandler(async (req, res) => {
-  const q = req.query.q || '';
-  const listingType = req.query.type;
+  const { q = '', category = '', condition = '' } = req.query;
 
-  const matchedBooks = await Book.find({
-    $or: [
+  const bookFilter = { availability: true };
+  if (q) {
+    bookFilter.$or = [
       { title: { $regex: q, $options: 'i' } },
       { author: { $regex: q, $options: 'i' } },
       { isbn: { $regex: q, $options: 'i' } },
-      { examType: { $regex: q, $options: 'i' } },
-      { subject: { $regex: q, $options: 'i' } }
-    ]
-  }).select('_id');
-
-  const filter = {
-    book: {
-      $in: matchedBooks.map((book) => book._id)
-    },
-    status: 'available'
-  };
-
-  if (listingType) {
-    filter.listingType = listingType;
+      { category: { $regex: q, $options: 'i' } }
+    ];
   }
+  if (category) bookFilter.category = { $regex: category, $options: 'i' };
 
-  const listings = await StudentBook.find(filter)
-    .populate('seller', 'name email phone college location badgeCount')
-    .populate('book')
+  const matchedBookIds = (await Book.find(bookFilter).select('_id')).map(b => b._id);
+
+  const filter = { book: { $in: matchedBookIds }, status: 'available', approvalStatus: 'approved' };
+  if (condition) filter.condition = condition;
+
+  const listings = await Marketplace.find(filter)
+    .populate('book', 'title author isbn category description imageUrl publishedDate')
+    .populate('seller', 'name email phone college location profileImage')
     .sort({ createdAt: -1 });
 
   res.json(listings);
 });
 
+// @desc  Get my marketplace listings
+// @route GET /api/marketplace/my-listings
+const getMyListings = asyncHandler(async (req, res) => {
+  const listings = await Marketplace.find({ seller: req.user._id })
+    .populate('book', 'title author isbn category imageUrl')
+    .sort({ createdAt: -1 });
+  res.json(listings);
+});
+
+// @desc  Create a marketplace listing (sell a book)
+// @route POST /api/marketplace
 const createMarketplaceListing = asyncHandler(async (req, res) => {
   const {
-    title,
-    author,
-    isbn,
-    category,
-    subject,
-    course,
-    semester,
-    examType,
-    description,
-    imageUrl,
-    price,
-    condition,
-    listingType
+    title, author, isbn, publisher, category, description,
+    condition, price, imageUrl, location, latitude, longitude
   } = req.body;
 
-  if (!title) {
+  if (!title || price === undefined) {
     res.status(400);
-    throw new Error('Book title is required.');
+    throw new Error('Book title and price are required.');
   }
 
+  // Create the Book record
   const book = await Book.create({
     title,
-    author,
-    isbn,
-    category,
-    subject,
-    course,
-    semester,
-    examType,
-    description,
-    imageUrl
+    author: author || 'Unknown Author',
+    isbn: isbn || '',
+    publisher: publisher || '',
+    category: category || 'General',
+    description: description || '',
+    condition: condition || 'Good',
+    price: Number(price),
+    imageUrl: imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=60',
+    owner: req.user._id,
+    role: req.user.role,
+    location: location || req.user.location || '',
+    latitude: latitude || req.user.latitude,
+    longitude: longitude || req.user.longitude,
+    availability: true,
+    marketplaceStatus: req.user.role === 'admin' ? 'approved' : 'pending'
   });
 
-  const listing = await StudentBook.create({
-    seller: req.user._id,
+  // Create the Marketplace listing
+  const listing = await Marketplace.create({
     book: book._id,
-    price: Number(price || 0),
+    seller: req.user._id,
+    price: Number(price),
     condition: condition || 'Good',
-    listingType: listingType || 'sell',
-    imageUrl,
+    approvalStatus: req.user.role === 'admin' ? 'approved' : 'approved', // auto-approve for now
     status: 'available'
   });
 
-  if (listing.listingType === 'donate') {
-    await Donation.create({
-      donor: req.user._id,
-      listing: listing._id,
-      status: 'available'
-    });
-
-    await User.findByIdAndUpdate(req.user._id, {
-      $inc: {
-        badgeCount: 1
-      }
-    });
-  }
-
-  res.status(201).json({
-    message: 'Book listing added successfully',
-    listing
-  });
+  res.status(201).json({ message: 'Book listing created successfully', listing });
 });
 
-const updateMarketplaceListing = asyncHandler(async (req, res) => {
-  const listing = await StudentBook.findById(req.params.id);
+// @desc  Buy a book from marketplace
+// @route POST /api/marketplace/:id/buy
+const buyBook = asyncHandler(async (req, res) => {
+  const listing = await Marketplace.findById(req.params.id)
+    .populate('book')
+    .populate('seller');
 
-  if (!listing) {
+  if (!listing || listing.status !== 'available') {
     res.status(404);
-    throw new Error('Listing not found.');
+    throw new Error('Listing not found or no longer available.');
   }
 
-  if (
-    listing.seller.toString() !== req.user._id.toString() &&
-    req.user.role !== 'admin'
-  ) {
-    res.status(403);
-    throw new Error('You are not allowed to update this listing.');
+  if (listing.seller._id.toString() === req.user._id.toString()) {
+    res.status(400);
+    throw new Error('You cannot buy your own book.');
   }
 
-  Object.assign(listing, req.body);
-
-  if (req.body.price !== undefined) {
-    listing.price = Number(req.body.price);
-  }
-
+  // Mark as sold
+  listing.status = 'sold';
   await listing.save();
 
-  res.json({
-    message: 'Listing updated successfully',
-    listing
+  // Mark book as not available
+  await Book.findByIdAndUpdate(listing.book._id, {
+    availability: false,
+    marketplaceStatus: 'sold'
   });
+
+  // Create order record
+  const order = await Order.create({
+    buyer: req.user._id,
+    seller: listing.seller._id,
+    book: listing.book._id,
+    price: listing.price
+  });
+
+  // Notify seller
+  await Notification.create({
+    user: listing.seller._id,
+    title: 'Book Sold!',
+    message: `Your book "${listing.book.title}" has been purchased by ${req.user.name}.`,
+    type: 'book_sold'
+  });
+
+  res.json({ message: 'Book purchased successfully!', order });
 });
 
-const deleteMarketplaceListing = asyncHandler(async (req, res) => {
-  const listing = await StudentBook.findById(req.params.id);
-
+// @desc  Update a listing
+// @route PUT /api/marketplace/:id
+const updateMarketplaceListing = asyncHandler(async (req, res) => {
+  const listing = await Marketplace.findById(req.params.id);
   if (!listing) {
     res.status(404);
     throw new Error('Listing not found.');
   }
 
-  if (
-    listing.seller.toString() !== req.user._id.toString() &&
-    req.user.role !== 'admin'
-  ) {
+  if (listing.seller.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
     res.status(403);
-    throw new Error('You are not allowed to delete this listing.');
+    throw new Error('Not authorized to update this listing.');
+  }
+
+  if (req.body.price !== undefined) listing.price = Number(req.body.price);
+  if (req.body.condition) listing.condition = req.body.condition;
+  if (req.body.status) listing.status = req.body.status;
+  if (req.body.approvalStatus) listing.approvalStatus = req.body.approvalStatus;
+
+  const updated = await listing.save();
+  res.json({ message: 'Listing updated', listing: updated });
+});
+
+// @desc  Delete a listing
+// @route DELETE /api/marketplace/:id
+const deleteMarketplaceListing = asyncHandler(async (req, res) => {
+  const listing = await Marketplace.findById(req.params.id);
+  if (!listing) {
+    res.status(404);
+    throw new Error('Listing not found.');
+  }
+
+  if (listing.seller.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    res.status(403);
+    throw new Error('Not authorized to delete this listing.');
   }
 
   await listing.deleteOne();
-
-  res.json({
-    message: 'Listing deleted successfully'
-  });
+  res.json({ message: 'Listing removed.' });
 });
 
 module.exports = {
   getMarketplaceListings,
+  getMyListings,
   createMarketplaceListing,
+  buyBook,
   updateMarketplaceListing,
   deleteMarketplaceListing
 };

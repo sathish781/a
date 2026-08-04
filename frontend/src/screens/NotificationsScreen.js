@@ -5,7 +5,6 @@ import GlassScreen from '../components/GlassScreen';
 import GlassCard from '../components/GlassCard';
 import EmptyState from '../components/EmptyState';
 import api from '../api/client';
-import { colors } from '../utils/theme';
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
@@ -26,10 +25,12 @@ export default function NotificationsScreen() {
   return (
     <GlassScreen>
       <View style={styles.container}>
-        <Text style={styles.title}>Notifications</Text>
-        <Text style={styles.subtitle}>
-          Reservation, donation, and exchange updates.
-        </Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Notifications</Text>
+          <Text style={styles.subtitle}>
+            Reservation, donation, and exchange updates.
+          </Text>
+        </View>
 
         <FlatList
           data={notifications}
@@ -38,12 +39,17 @@ export default function NotificationsScreen() {
           ListEmptyComponent={
             <EmptyState
               title="No notifications"
-              message="You are fully updated."
+              message="You are fully up to date."
             />
           }
           renderItem={({ item }) => (
-            <GlassCard style={!item.isRead && styles.unreadCard}>
-              <Text style={styles.cardTitle}>🔔 {item.title}</Text>
+            <GlassCard style={[styles.notifCard, !item.isRead && styles.unreadCard]}>
+              <View style={styles.titleRow}>
+                <Text style={styles.cardTitle}>🔔 {item.title}</Text>
+                {!item.isRead && (
+                  <View style={styles.newDot} />
+                )}
+              </View>
               <Text style={styles.cardText}>{item.message}</Text>
               <Text style={styles.date}>
                 {new Date(item.createdAt).toLocaleString()}
@@ -59,34 +65,60 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 18
+    padding: 18,
+  },
+  header: {
+    marginBottom: 16,
   },
   title: {
-    color: colors.white,
-    fontSize: 30,
-    fontWeight: '900'
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.3,
   },
   subtitle: {
-    color: colors.muted,
-    marginTop: 6,
-    marginBottom: 14
+    color: '#94a3b8',
+    marginTop: 4,
+    fontSize: 14,
+  },
+  notifCard: {
+    padding: 16,
+    marginVertical: 6,
   },
   unreadCard: {
-    borderColor: colors.primary
+    borderColor: '#6366f1',
+    borderWidth: 1.5,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   cardTitle: {
-    color: colors.white,
-    fontSize: 17,
-    fontWeight: '900'
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    flex: 1,
+  },
+  newDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#6366f1',
+    shadowColor: '#6366f1',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
   },
   cardText: {
-    color: colors.muted,
+    color: '#94a3b8',
     marginTop: 8,
-    lineHeight: 20
+    fontSize: 14,
+    lineHeight: 20,
   },
   date: {
-    color: 'rgba(255,255,255,0.58)',
+    color: '#64748b',
     marginTop: 10,
-    fontSize: 12
-  }
+    fontSize: 12,
+    fontWeight: '500',
+  },
 });

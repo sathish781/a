@@ -1,76 +1,79 @@
 export const darkTheme = {
   mode: 'dark',
 
-  primary: '#38BDF8',
-  primaryDark: '#2563EB',
-  accent: '#A855F7',
-  accentTwo: '#22C55E',
+  primary: '#6366f1',       // Indigo-500 (premium deep violet-blue)
+  primaryDark: '#4f46e5',   // Indigo-600
+  accent: '#8b5cf6',        // Violet-500
+  accentTwo: '#7c3aed',     // Violet-600
 
-  backgroundOne: '#020617',
-  backgroundTwo: '#0F172A',
-  backgroundThree: '#312E81',
+  backgroundOne: '#050508', // Deep Pitch Black
+  backgroundTwo: '#0a0a10', // Midnight Dark Obsidian
+  backgroundThree: '#0d0b18', // Deep Indigo Night
 
-  white: '#FFFFFF',
-  text: '#F8FAFC',
-  darkText: '#0F172A',
-  muted: '#CBD5E1',
+  white: '#ffffff',
+  text: '#f8fafc',
+  darkText: '#0f172a',
+  muted: '#94a3b8', // Slate muted text
 
-  glass: 'rgba(255,255,255,0.14)',
-  glassStrong: 'rgba(255,255,255,0.24)',
-  glassBorder: 'rgba(255,255,255,0.28)',
+  glass: 'rgba(16, 17, 30, 0.82)',
+  glassStrong: 'rgba(24, 25, 45, 0.92)',
+  glassBorder: 'rgba(99, 102, 241, 0.25)',
+  glassGlow: 'rgba(99, 102, 241, 0.38)',
 
-  cardShadow: '#000000',
+  cardShadow: '#6366f1',
 
-  danger: '#EF4444',
-  success: '#22C55E',
-  warning: '#F59E0B',
+  danger: '#ef4444',
+  success: '#10b981',
+  warning: '#f59e0b',
 
-  tabBg: 'rgba(2,6,23,0.96)',
+  tabBg: 'rgba(8, 8, 18, 0.95)',
 };
 
 export const lightTheme = {
   mode: 'light',
 
-  primary: '#2563EB',
-  primaryDark: '#1D4ED8',
-  accent: '#7C3AED',
-  accentTwo: '#16A34A',
+  primary: '#6366f1',       // Indigo-500 — rich, premium accent
+  primaryDark: '#4f46e5',   // Indigo-600
+  accent: '#8b5cf6',        // Violet-500
+  accentTwo: '#7c3aed',     // Violet-600
 
-  backgroundOne: '#EFF6FF',
-  backgroundTwo: '#E0E7FF',
-  backgroundThree: '#F5D0FE',
+  backgroundOne: '#ffffff', // Crisp pure white background
+  backgroundTwo: '#f8fafc', // Soft slate white section bg
+  backgroundThree: '#f1f5f9', // Slate light neutral bg
 
-  white: '#0F172A',
-  text: '#0F172A',
-  darkText: '#0F172A',
-  muted: '#475569',
+  white: '#ffffff',
+  text: '#0f172a', // High-contrast dark text
+  darkText: '#0f172a',
+  muted: '#64748b', // Slate muted text
 
-  glass: 'rgba(255,255,255,0.68)',
-  glassStrong: 'rgba(255,255,255,0.88)',
-  glassBorder: 'rgba(255,255,255,0.95)',
+  glass: '#ffffff',
+  glassStrong: '#f8fafc',
+  glassBorder: 'rgba(226, 232, 240, 0.9)',
+  glassGlow: 'rgba(99, 102, 241, 0.15)',
 
-  cardShadow: '#64748B',
+  cardShadow: 'rgba(99, 102, 241, 0.10)',
 
-  danger: '#DC2626',
-  success: '#16A34A',
-  warning: '#D97706',
+  danger: '#ef4444',
+  success: '#10b981',
+  warning: '#f59e0b',
 
-  tabBg: 'rgba(255,255,255,0.96)',
+  tabBg: '#ffffff',
 };
 
-export const colors = darkTheme;
+export const colors = lightTheme;
 
 export const spacing = {
   xs: 6,
-  sm: 10,
-  md: 16,
+  sm: 12,
+  md: 18,
   lg: 24,
-  xl: 32,
+  xl: 36,
 };
 
 export const radius = {
-  sm: 12,
-  md: 18,
-  lg: 26,
-  xl: 34,
+  sm: 14,
+  md: 20,
+  lg: 28,
+  xl: 36,
+  full: 9999,
 };

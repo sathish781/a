@@ -1,19 +1,22 @@
 const express = require('express');
-
 const {
-  getDashboardReport
+  getMonthlyDonations,
+  getMonthlyExchanges,
+  getMostSearched,
+  getMostActiveUsers,
+  getSummary
 } = require('../controllers/reportController');
-
-const protect = require('../middleware/authMiddleware');
-const allowRoles = require('../middleware/roleMiddleware');
+const { protect } = require('../middleware/authMiddleware');
+const { authorize } = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
-router.get(
-  '/dashboard',
-  protect,
-  allowRoles('admin'),
-  getDashboardReport
-);
+router.use(protect, authorize('admin'));
+
+router.get('/donations', getMonthlyDonations);
+router.get('/exchanges', getMonthlyExchanges);
+router.get('/most-searched', getMostSearched);
+router.get('/most-active', getMostActiveUsers);
+router.get('/summary', getSummary);
 
 module.exports = router;

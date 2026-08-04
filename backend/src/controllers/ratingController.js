@@ -1,51 +1,43 @@
 const Rating = require('../models/Rating');
 const asyncHandler = require('../utils/asyncHandler');
 
+// @desc  Create a rating
+// @route POST /api/ratings
 const createRating = asyncHandler(async (req, res) => {
-  const { targetUser, targetShop, rating, review } = req.body;
+  const { targetUserId, targetBookId, rating, comment } = req.body;
 
-  if (!rating) {
+  if (!rating || rating < 1 || rating > 5) {
     res.status(400);
-    throw new Error('Rating value is required.');
+    throw new Error('Rating must be between 1 and 5.');
   }
 
-  const newRating = await Rating.create({
+  const ratingDoc = await Rating.create({
     reviewer: req.user._id,
-    targetUser,
-    targetShop,
-    rating,
-    review
+    targetUser: targetUserId || undefined,
+    targetBook: targetBookId || undefined,
+    rating: Number(rating),
+    comment: comment || ''
   });
 
-  res.status(201).json({
-    message: 'Rating added successfully',
-    rating: newRating
-  });
+  res.status(201).json({ message: 'Rating submitted.', rating: ratingDoc });
 });
 
-const getRatings = asyncHandler(async (req, res) => {
-  const { targetUser, targetShop } = req.query;
-
-  const filter = {};
-
-  if (targetUser) {
-    filter.targetUser = targetUser;
-  }
-
-  if (targetShop) {
-    filter.targetShop = targetShop;
-  }
-
-  const ratings = await Rating.find(filter)
-    .populate('reviewer', 'name email')
-    .populate('targetUser', 'name email')
-    .populate('targetShop', 'name address')
+// @desc  Get ratings for a user
+// @route GET /api/ratings/user/:userId
+const getUserRatings = asyncHandler(async (req, res) => {
+  const ratings = await Rating.find({ targetUser: req.params.userId })
+    .populate('reviewer', 'name profileImage')
     .sort({ createdAt: -1 });
-
   res.json(ratings);
 });
 
-module.exports = {
-  createRating,
-  getRatings
-};
+// @desc  Get ratings for a book
+// @route GET /api/ratings/book/:bookId
+const getBookRatings = asyncHandler(async (req, res) => {
+  const ratings = await Rating.find({ targetBook: req.params.bookId })
+    .populate('reviewer', 'name profileImage')
+    .sort({ createdAt: -1 });
+  res.json(ratings);
+});
+
+module.exports = { createRating, getUserRatings, getBookRatings };

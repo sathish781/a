@@ -7,6 +7,9 @@
     "userInterfaceStyle": "light",
     "android": {
       "package": "com.bookconnect.app"
-    }
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
   }
 }

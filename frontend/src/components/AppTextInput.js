@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 
 import { radius } from '../utils/theme';
@@ -6,26 +6,30 @@ import { useThemeMode } from '../context/ThemeContext';
 
 export default function AppTextInput(props) {
   const { theme } = useThemeMode();
+  const isLight = theme.mode === 'light';
+  const [isFocused, setIsFocused] = useState(false);
 
   return (
     <TextInput
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       style={[
         styles.input,
         {
-          color: theme.white,
-          borderColor: theme.glassBorder,
-          backgroundColor:
-            theme.mode === 'dark'
-              ? 'rgba(255,255,255,0.13)'
-              : 'rgba(255,255,255,0.72)',
+          backgroundColor: isLight ? '#f8fafc' : '#090a14',
+          borderColor: isFocused ? theme.primary : (isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(255, 0, 60, 0.25)'),
+          color: theme.text,
+        },
+        isFocused && {
+          shadowColor: theme.primary,
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+          elevation: 3,
         },
         props.multiline && styles.multiline,
+        props.style,
       ]}
-      placeholderTextColor={
-        theme.mode === 'dark'
-          ? 'rgba(255,255,255,0.68)'
-          : 'rgba(15,23,42,0.50)'
-      }
+      placeholderTextColor={isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.5)'}
       {...props}
     />
   );
@@ -33,16 +37,17 @@ export default function AppTextInput(props) {
 
 const styles = StyleSheet.create({
   input: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderRadius: radius.md,
     paddingHorizontal: 16,
-    paddingVertical: 13,
-    fontSize: 16,
-    marginVertical: 7,
-    fontWeight: '700',
+    paddingVertical: 14,
+    fontSize: 15,
+    marginVertical: 6,
+    fontWeight: '500',
+    minHeight: 52,
   },
   multiline: {
-    minHeight: 95,
+    minHeight: 90,
     textAlignVertical: 'top',
   },
 });

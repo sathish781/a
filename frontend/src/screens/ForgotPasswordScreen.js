@@ -1,60 +1,56 @@
 import React, { useState } from 'react';
-import { Text, StyleSheet, Alert } from 'react-native';
+import {
+  Text,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 
-import GlassScreen from '../components/GlassScreen';
-import GlassCard from '../components/GlassCard';
-import AppTextInput from '../components/AppTextInput';
-import AppButton from '../components/AppButton';
+import NeonAuthScreen, { NeonInput, NeonButton } from '../components/NeonAuthScreen';
 import api from '../api/client';
-import { colors } from '../utils/theme';
 
-export default function ForgotPasswordScreen() {
+export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
   async function submit() {
     try {
+      if (!email) {
+        Alert.alert('Missing Field', 'Please enter your email address');
+        return;
+      }
+      setLoading(true);
       const res = await api.post('/auth/forgot-password', { email });
-      Alert.alert('Message', res.data.message);
+      Alert.alert('Message', res.data.message || 'Reset link sent to your email!');
     } catch (error) {
-      Alert.alert('Error', 'Unable to process request');
+      Alert.alert('Error', 'Unable to process request. Check backend connection.');
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <GlassScreen>
-      <GlassCard style={styles.card}>
-        <Text style={styles.title}>Forgot Password</Text>
-        <Text style={styles.subtitle}>
-          Enter your email. For demo project, password reset message will be shown.
-        </Text>
+    <NeonAuthScreen
+      icon="🔑"
+      title="Reset Password"
+      subtitle="Enter your email address and we will send you password reset instructions."
+      footerText="Remembered your password?"
+      footerLinkText="Log in"
+      onFooterLinkPress={() => navigation.navigate('Login')}
+    >
+      <NeonInput
+        label="Email address"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="you@university.edu"
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
 
-        <AppTextInput
-          placeholder="Email Address"
-          value={email}
-          autoCapitalize="none"
-          onChangeText={setEmail}
-        />
-
-        <AppButton title="Submit" onPress={submit} />
-      </GlassCard>
-    </GlassScreen>
+      <NeonButton
+        title="SEND RESET LINK"
+        onPress={submit}
+        loading={loading}
+      />
+    </NeonAuthScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    margin: 22,
-    marginTop: 120
-  },
-  title: {
-    color: colors.white,
-    fontSize: 28,
-    fontWeight: '900'
-  },
-  subtitle: {
-    color: colors.muted,
-    marginTop: 8,
-    marginBottom: 12,
-    lineHeight: 22
-  }
-});

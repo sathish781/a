@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 import GlassCard from './GlassCard';
-import AppButton from './AppButton';
+
 import { useThemeMode } from '../context/ThemeContext';
 
 export default function AppHeader({
@@ -10,25 +10,25 @@ export default function AppHeader({
   title,
   subtitle,
   icon = '📚',
-  showThemeButton = false,
 }) {
-  const { theme, themeMode, toggleTheme } = useThemeMode();
+  const { theme } = useThemeMode();
+  const isLight = theme.mode === 'light';
 
   return (
     <GlassCard style={styles.header}>
       <View style={styles.row}>
-        <View style={styles.iconBox}>
+        <View style={[styles.iconBox, { backgroundColor: isLight ? '#f8fafc' : '#090a14', borderColor: theme.primary }]}>
           <Text style={styles.icon}>{icon}</Text>
         </View>
 
         <View style={styles.textBox}>
           {label ? (
-            <Text style={[styles.label, { color: theme.muted }]}>
+            <Text style={[styles.label, { color: theme.primary }]}>
               {label}
             </Text>
           ) : null}
 
-          <Text style={[styles.title, { color: theme.white }]}>
+          <Text style={[styles.title, { color: theme.text }]}>
             {title}
           </Text>
 
@@ -39,53 +39,54 @@ export default function AppHeader({
           ) : null}
         </View>
       </View>
-
-      {showThemeButton && (
-        <AppButton
-          title={themeMode === 'dark' ? 'Light Theme' : 'Dark Theme'}
-          variant="gold"
-          onPress={toggleTheme}
-        />
-      )}
     </GlassCard>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    paddingVertical: 22,
+    paddingVertical: 18,
+    marginVertical: 8,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconBox: {
-    width: 66,
-    height: 66,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
+    shadowColor: '#dc2626',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   icon: {
-    fontSize: 34,
+    fontSize: 30,
   },
   textBox: {
     flex: 1,
   },
   label: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '800',
-    marginBottom: 4,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '900',
+    letterSpacing: -0.3,
   },
   subtitle: {
-    marginTop: 6,
-    lineHeight: 20,
-    fontWeight: '600',
+    marginTop: 4,
+    lineHeight: 18,
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

@@ -1,133 +1,190 @@
+const Book = require('../models/Book');
 const Exchange = require('../models/Exchange');
-const StudentBook = require('../models/StudentBook');
+const Notification = require('../models/Notification');
 const asyncHandler = require('../utils/asyncHandler');
-const sendNotification = require('../utils/sendNotification');
 
+// @desc  Get available exchange books
+// @route GET /api/exchanges
+const getExchanges = asyncHandler(async (req, res) => {
+  // Return books listed as available for exchange
+  const books = await Book.find({ exchangeStatus: 'available', availability: true })
+    .populate('owner', 'name email phone college location profileImage')
+    .sort({ createdAt: -1 });
+  res.json(books);
+});
+
+// @desc  List my book for exchange
+// @route POST /api/exchanges/list
+const listBookForExchange = asyncHandler(async (req, res) => {
+  const {
+    title, author, isbn, publisher, category, description,
+    condition, imageUrl, location, latitude, longitude
+  } = req.body;
+
+  if (!title) {
+    res.status(400);
+    throw new Error('Book title is required.');
+  }
+
+  const book = await Book.create({
+    title,
+    author: author || 'Unknown Author',
+    isbn: isbn || '',
+    publisher: publisher || '',
+    category: category || 'General',
+    description: description || '',
+    condition: condition || 'Good',
+    price: 0,
+    imageUrl: imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=60',
+    owner: req.user._id,
+    role: req.user.role,
+    location: location || req.user.location || '',
+    latitude: latitude || req.user.latitude,
+    longitude: longitude || req.user.longitude,
+    availability: true,
+    exchangeStatus: 'available'
+  });
+
+  res.status(201).json({ message: 'Book listed for exchange.', book });
+});
+
+// @desc  Create an exchange request
+// @route POST /api/exchanges/request
 const createExchangeRequest = asyncHandler(async (req, res) => {
-  const { requestedListingId, offeredListingId, message } = req.body;
+  const { requestedBookId, offeredBookId, message } = req.body;
 
-  if (!requestedListingId) {
+  if (!requestedBookId || !offeredBookId) {
     res.status(400);
-    throw new Error('Requested listing ID is required.');
+    throw new Error('Both requested and offered book IDs are required.');
   }
 
-  const requestedListing = await StudentBook.findById(requestedListingId)
-    .populate('seller')
-    .populate('book');
+  const requestedBook = await Book.findById(requestedBookId).populate('owner');
+  const offeredBook = await Book.findById(offeredBookId);
 
-  if (!requestedListing) {
+  if (!requestedBook || !offeredBook) {
     res.status(404);
-    throw new Error('Requested listing not found.');
+    throw new Error('One or both books not found.');
   }
 
-  if (requestedListing.seller._id.toString() === req.user._id.toString()) {
-    res.status(400);
-    throw new Error('You cannot request exchange for your own book.');
+  if (offeredBook.owner.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error('You can only offer books that you own.');
   }
 
   const exchange = await Exchange.create({
     requester: req.user._id,
-    owner: requestedListing.seller._id,
-    requestedListing: requestedListingId,
-    offeredListing: offeredListingId || null,
-    message: message || 'I want to exchange this book.',
+    requestedBook: requestedBookId,
+    targetUser: requestedBook.owner._id,
+    offeredBook: offeredBookId,
+    message: message || '',
     status: 'pending'
   });
 
-  await sendNotification(
-    requestedListing.seller._id,
-    'New Exchange Request',
-    `You received an exchange request for ${requestedListing.book.title}.`
-  );
-
-  res.status(201).json({
-    message: 'Exchange request sent successfully',
-    exchange
+  // Notify the target user
+  await Notification.create({
+    user: requestedBook.owner._id,
+    title: 'Exchange Request Received',
+    message: `${req.user.name} wants to exchange a book with you. Check your exchange requests.`,
+    type: 'exchange_request',
+    data: { exchangeId: exchange._id }
   });
+
+  res.status(201).json({ message: 'Exchange request sent.', exchange });
 });
 
-const getMyExchanges = asyncHandler(async (req, res) => {
-  const exchanges = await Exchange.find({
-    $or: [
-      { requester: req.user._id },
-      { owner: req.user._id }
-    ]
-  })
-    .populate('requester', 'name phone email')
-    .populate('owner', 'name phone email')
-    .populate({
-      path: 'requestedListing',
-      populate: {
-        path: 'book'
-      }
-    })
-    .populate({
-      path: 'offeredListing',
-      populate: {
-        path: 'book'
-      }
-    })
-    .sort({ createdAt: -1 });
-
-  res.json(exchanges);
-});
-
-const updateExchangeStatus = asyncHandler(async (req, res) => {
-  const { status } = req.body;
-
-  const allowedStatus = ['pending', 'accepted', 'rejected', 'completed'];
-
-  if (!allowedStatus.includes(status)) {
-    res.status(400);
-    throw new Error('Invalid exchange status.');
-  }
-
+// @desc  Accept an exchange request
+// @route PATCH /api/exchanges/:id/accept
+const acceptExchange = asyncHandler(async (req, res) => {
   const exchange = await Exchange.findById(req.params.id)
-    .populate('requester')
-    .populate('owner')
-    .populate({
-      path: 'requestedListing',
-      populate: {
-        path: 'book'
-      }
-    });
+    .populate('requestedBook')
+    .populate('offeredBook')
+    .populate('requester');
 
   if (!exchange) {
     res.status(404);
     throw new Error('Exchange request not found.');
   }
 
-  if (
-    exchange.owner._id.toString() !== req.user._id.toString() &&
-    req.user.role !== 'admin'
-  ) {
+  if (exchange.targetUser.toString() !== req.user._id.toString()) {
     res.status(403);
-    throw new Error('Only book owner or admin can update exchange request.');
+    throw new Error('Not authorized to accept this exchange.');
   }
 
-  exchange.status = status;
+  exchange.status = 'accepted';
   await exchange.save();
 
-  if (status === 'completed') {
-    await StudentBook.findByIdAndUpdate(exchange.requestedListing._id, {
-      status: 'exchanged'
-    });
+  // Update book exchange statuses
+  await Book.findByIdAndUpdate(exchange.requestedBook._id, { exchangeStatus: 'exchanged', availability: false });
+  await Book.findByIdAndUpdate(exchange.offeredBook._id, { exchangeStatus: 'exchanged', availability: false });
+
+  // Notify requester
+  await Notification.create({
+    user: exchange.requester._id,
+    title: 'Exchange Accepted!',
+    message: `Your exchange request for "${exchange.requestedBook.title}" has been accepted!`,
+    type: 'exchange_accepted',
+    data: { exchangeId: exchange._id }
+  });
+
+  res.json({ message: 'Exchange accepted.', exchange });
+});
+
+// @desc  Reject an exchange request
+// @route PATCH /api/exchanges/:id/reject
+const rejectExchange = asyncHandler(async (req, res) => {
+  const exchange = await Exchange.findById(req.params.id).populate('requestedBook').populate('requester');
+  if (!exchange) {
+    res.status(404);
+    throw new Error('Exchange request not found.');
   }
 
-  await sendNotification(
-    exchange.requester._id,
-    'Exchange Request Updated',
-    `Your exchange request for ${exchange.requestedListing.book.title} is ${status}.`
-  );
+  exchange.status = 'rejected';
+  await exchange.save();
 
-  res.json({
-    message: 'Exchange status updated successfully',
-    exchange
+  await Notification.create({
+    user: exchange.requester._id,
+    title: 'Exchange Declined',
+    message: `Your exchange request for "${exchange.requestedBook.title}" was declined.`,
+    type: 'general',
+    data: { exchangeId: exchange._id }
   });
+
+  res.json({ message: 'Exchange rejected.', exchange });
+});
+
+// @desc  Get my exchange requests (as requester or target)
+// @route GET /api/exchanges/my-exchanges
+const getMyExchanges = asyncHandler(async (req, res) => {
+  const exchanges = await Exchange.find({
+    $or: [{ requester: req.user._id }, { targetUser: req.user._id }]
+  })
+    .populate('requestedBook', 'title author isbn imageUrl condition')
+    .populate('offeredBook', 'title author isbn imageUrl condition')
+    .populate('requester', 'name email college location profileImage')
+    .populate('targetUser', 'name email college location profileImage')
+    .sort({ createdAt: -1 });
+
+  res.json(exchanges);
+});
+
+// @desc  Admin: Get all exchanges
+// @route GET /api/exchanges/all
+const getAllExchanges = asyncHandler(async (req, res) => {
+  const exchanges = await Exchange.find()
+    .populate('requestedBook', 'title author isbn imageUrl')
+    .populate('offeredBook', 'title author isbn imageUrl')
+    .populate('requester', 'name email')
+    .populate('targetUser', 'name email')
+    .sort({ createdAt: -1 });
+  res.json(exchanges);
 });
 
 module.exports = {
+  getExchanges,
+  listBookForExchange,
   createExchangeRequest,
+  acceptExchange,
+  rejectExchange,
   getMyExchanges,
-  updateExchangeStatus
+  getAllExchanges
 };

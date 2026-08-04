@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useThemeMode } from '../context/ThemeContext';
 
 import SplashScreen from '../screens/SplashScreen';
+import RoleSelectionScreen from '../screens/RoleSelectionScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
@@ -34,11 +35,31 @@ const Tab = createBottomTabNavigator();
 
 function TabIcon({ icon, focused }) {
   return (
-    <Text style={{ fontSize: focused ? 22 : 19 }}>
-      {icon}
-    </Text>
+    <View style={tabStyles.iconContainer}>
+      <Text style={{ fontSize: focused ? 22 : 19, opacity: focused ? 1 : 0.7 }}>
+        {icon}
+      </Text>
+      {focused && <View style={tabStyles.activeDot} />}
+    </View>
   );
 }
+
+const tabStyles = StyleSheet.create({
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#6366f1',
+    marginTop: 3,
+    shadowColor: '#acd8f4ff',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+  },
+});
 
 function MainTabs() {
   const { user } = useAuth();
@@ -49,21 +70,24 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.tabBg,
-          borderTopColor:
-            theme.mode === 'dark'
-              ? 'rgba(255,255,255,0.12)'
-              : 'rgba(15,23,42,0.12)',
+          backgroundColor: theme.tabBg || theme.backgroundOne,
+          borderTopColor: theme.glassBorder,
           borderTopWidth: 1,
           height: 68,
           paddingTop: 8,
           paddingBottom: 8,
+          elevation: 8,
+          shadowColor: theme.cardShadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
         },
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.muted,
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '900',
+          fontSize: 11,
+          fontWeight: '800',
+          letterSpacing: 0.4,
         },
       }}
     >
@@ -138,7 +162,7 @@ export default function AppNavigator() {
         headerStyle: {
           backgroundColor: theme.backgroundOne,
         },
-        headerTintColor: theme.white,
+        headerTintColor: theme.text,
         headerTitleStyle: {
           fontWeight: '900',
         },
@@ -151,9 +175,18 @@ export default function AppNavigator() {
             component={SplashScreen}
             options={{ headerShown: false }}
           />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen
+            name="RoleSelection"
+            component={RoleSelectionScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Register"
+            component={RegisterScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
         </>
       ) : (
         <>

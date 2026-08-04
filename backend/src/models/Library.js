@@ -2,25 +2,43 @@ const mongoose = require('mongoose');
 
 const librarySchema = new mongoose.Schema(
   {
-    name: {
+    libraryName: {
       type: String,
       required: true,
       trim: true
     },
-
-    address: {
+    librarianName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true
+    },
+    password: {
       type: String,
       required: true
     },
-
-    contact: {
+    phone: {
       type: String,
       default: ''
     },
-
-    staff: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+    location: {
+      type: String,
+      default: ''
+    },
+    approval: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    role: {
+      type: String,
+      default: 'library'
     }
   },
   {

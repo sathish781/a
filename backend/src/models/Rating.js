@@ -7,25 +7,21 @@ const ratingSchema = new mongoose.Schema(
       ref: 'User',
       required: true
     },
-
     targetUser: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     },
-
-    targetShop: {
+    targetBook: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Shop'
+      ref: 'Book'
     },
-
     rating: {
       type: Number,
+      required: true,
       min: 1,
-      max: 5,
-      required: true
+      max: 5
     },
-
-    review: {
+    comment: {
       type: String,
       default: ''
     }

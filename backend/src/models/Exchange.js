@@ -7,33 +7,29 @@ const exchangeSchema = new mongoose.Schema(
       ref: 'User',
       required: true
     },
-
-    owner: {
+    requestedBook: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Book',
+      required: true
+    },
+    targetUser: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true
     },
-
-    requestedListing: {
+    offeredBook: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'StudentBook',
+      ref: 'Book',
       required: true
     },
-
-    offeredListing: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'StudentBook'
-    },
-
-    message: {
-      type: String,
-      default: ''
-    },
-
     status: {
       type: String,
       enum: ['pending', 'accepted', 'rejected', 'completed'],
       default: 'pending'
+    },
+    message: {
+      type: String,
+      default: ''
     }
   },
   {

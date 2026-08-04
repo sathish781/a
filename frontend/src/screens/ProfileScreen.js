@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Text, StyleSheet, Alert } from 'react-native';
+import { Text, StyleSheet, View, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import GlassScreen from '../components/GlassScreen';
 import GlassCard from '../components/GlassCard';
@@ -14,11 +15,12 @@ import { useThemeMode } from '../context/ThemeContext';
 export default function ProfileScreen() {
   const { user, updateLocalUser, logout } = useAuth();
   const { theme, themeMode, toggleTheme } = useThemeMode();
+  const isLight = theme.mode === 'light';
 
   const [form, setForm] = useState({
-    name: user?.name || '',
+    name: user?.name || user?.shopName || user?.libraryName || '',
     phone: user?.phone || '',
-    college: user?.college || '',
+    college: user?.college || user?.shopAddress || user?.libraryAddress || '',
     location: user?.location || '',
   });
 
@@ -32,14 +34,14 @@ export default function ProfileScreen() {
   async function saveProfile() {
     try {
       const res = await api.put('/auth/profile', form);
-
       await updateLocalUser(res.data.user);
-
-      Alert.alert('Success', 'Profile updated');
+      Alert.alert('Success', 'Profile updated successfully!');
     } catch (error) {
-      Alert.alert('Error', 'Profile update failed');
+      Alert.alert('Error', 'Profile update failed. Check backend server.');
     }
   }
+
+  const initial = (user?.name || user?.shopName || user?.libraryName || 'U').charAt(0).toUpperCase();
 
   return (
     <GlassScreen>
@@ -48,67 +50,81 @@ export default function ProfileScreen() {
           icon="👤"
           label="Account Settings"
           title="My Profile"
-          subtitle="Manage profile, theme, and account settings."
+          subtitle="Manage your profile details, badges, and theme preferences."
         />
 
+        {/* Hero Card */}
         <GlassCard style={styles.profileCard}>
-          <Text style={styles.avatar}>👤</Text>
+          <View style={styles.avatarRingOuter}>
+            <LinearGradient
+              colors={isLight ? [theme.primary, theme.accent] : ['#afb0e6ff', '#8b5cf6', '#9995dcff']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarGradientRing}
+            >
+              <View style={[styles.avatarInner, isLight && { backgroundColor: '#ffffff' }]}>
+                <Text style={[styles.avatarInitial, isLight && { color: theme.primary }]}>{initial}</Text>
+              </View>
+            </LinearGradient>
+          </View>
 
-          <Text style={[styles.name, { color: theme.white }]}>
-            {user?.name}
-          </Text>
+          <Text style={[styles.name, { color: theme.text }]}>{user?.name || user?.shopName || user?.libraryName || 'User'}</Text>
+          <Text style={[styles.email, { color: theme.muted }]}>{user?.email || 'user@university.edu'}</Text>
 
-          <Text style={[styles.email, { color: theme.muted }]}>
-            {user?.email}
-          </Text>
+          <View style={styles.badgeRow}>
+            <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: isLight ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.15)' }]}>
+              <Text style={[styles.redBadgeText, { color: theme.primary }]}>Role: {user?.role || 'student'}</Text>
+            </View>
 
-          <Text style={[styles.badge, { color: theme.white }]}>
-            Role: {user?.role}
-          </Text>
-
-          <Text style={[styles.badge, { color: theme.white }]}>
-            Donation Badges: {user?.badgeCount || 0}
-          </Text>
-
-          <Text style={[styles.badge, { color: theme.white }]}>
-            Theme: {themeMode}
-          </Text>
+            <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: isLight ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.15)' }]}>
+              <Text style={[styles.redBadgeText, { color: theme.primary }]}>🎁 Badges: {user?.badgeCount || 0}</Text>
+            </View>
+          </View>
         </GlassCard>
 
-        <GlassCard>
+        {/* Theme Settings Card */}
+        <GlassCard style={styles.formCard}>
+          <Text style={[styles.sectionHeader, { color: theme.text }]}>App Appearance</Text>
+          <Text style={[styles.helpText, { color: theme.muted }]}>Current Theme Mode: {themeMode === 'light' ? 'Pure White Light' : 'Obsidian Dark'}</Text>
           <AppButton
-            title={themeMode === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-            variant="gold"
+            title={themeMode === 'light' ? "🌙 SWITCH TO DARK MODE" : "☀️ SWITCH TO WHITE LIGHT MODE"}
             onPress={toggleTheme}
+            variant="dark"
+            style={{ marginTop: 8 }}
           />
+        </GlassCard>
+
+        {/* Form Details Card */}
+        <GlassCard style={styles.formCard}>
+          <Text style={[styles.sectionHeader, { color: theme.text }]}>Edit Account Details</Text>
 
           <AppTextInput
-            placeholder="Name"
+            placeholder="Full Name / Entity Name"
             value={form.name}
             onChangeText={(v) => setValue('name', v)}
           />
 
           <AppTextInput
-            placeholder="Phone"
+            placeholder="Phone Number"
             value={form.phone}
             keyboardType="phone-pad"
             onChangeText={(v) => setValue('phone', v)}
           />
 
           <AppTextInput
-            placeholder="College / Shop / Library"
+            placeholder="College / Shop / Library Name"
             value={form.college}
             onChangeText={(v) => setValue('college', v)}
           />
 
           <AppTextInput
-            placeholder="Location"
+            placeholder="Location (City / Campus)"
             value={form.location}
             onChangeText={(v) => setValue('location', v)}
           />
 
-          <AppButton title="Save Profile" onPress={saveProfile} />
-          <AppButton title="Logout" variant="danger" onPress={logout} />
+          <AppButton title="SAVE PROFILE" onPress={saveProfile} style={{ marginTop: 10 }} />
+          <AppButton title="LOGOUT ACCOUNT" variant="danger" onPress={logout} style={{ marginTop: 8 }} />
         </GlassCard>
       </AppScrollView>
     </GlassScreen>
@@ -118,29 +134,81 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 18,
+    paddingBottom: 110,
   },
   profileCard: {
     alignItems: 'center',
-    paddingVertical: 26,
+    paddingVertical: 30,
+    marginTop: 8,
+    marginBottom: 16,
   },
-  avatar: {
-    fontSize: 62,
-    marginBottom: 8,
+  avatarRingOuter: {
+    marginBottom: 14,
+    shadowColor: '#dc2626',
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  avatarGradientRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 45,
+    backgroundColor: '#090a14',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontSize: 40,
+    fontWeight: '900',
+    color: '#6366f1',
+    letterSpacing: 0.5,
   },
   name: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
+    letterSpacing: -0.3,
+    marginBottom: 4,
   },
   email: {
-    marginTop: 5,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 16,
   },
-  badge: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: 12,
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  redBadge: {
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    marginTop: 8,
-    fontWeight: '900',
+  },
+  redBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'capitalize',
+  },
+  formCard: {
+    padding: 20,
+    marginVertical: 8,
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: 0.4,
+  },
+  helpText: {
+    fontSize: 13,
+    marginBottom: 6,
   },
 });

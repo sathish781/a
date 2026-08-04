@@ -7,17 +7,21 @@ import AppButton from '../../components/AppButton';
 import AppScrollView from '../../components/AppScrollView';
 import AppHeader from '../../components/AppHeader';
 import { useAuth } from '../../context/AuthContext';
+
 import { useThemeMode } from '../../context/ThemeContext';
 
 function ActionCard({ icon, title, text, button, onPress }) {
   const { theme } = useThemeMode();
-
   return (
-    <GlassCard>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={[styles.cardTitle, { color: theme.white }]}>{title}</Text>
+    <GlassCard style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={[styles.iconCircle, { backgroundColor: theme.mode === 'light' ? '#f8fafc' : '#090a14', borderColor: theme.primary }]}>
+          <Text style={styles.icon}>{icon}</Text>
+        </View>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>{title}</Text>
+      </View>
       <Text style={[styles.cardText, { color: theme.muted }]}>{text}</Text>
-      <AppButton title={button} onPress={onPress} />
+      <AppButton title={button} onPress={onPress} style={{ marginTop: 8 }} />
     </GlassCard>
   );
 }
@@ -32,66 +36,80 @@ export default function StudentDashboardScreen({ navigation }) {
         <AppHeader
           icon="🎓"
           label="Student Dashboard"
-          title={`Hi, ${user?.name}`}
-          subtitle="Search, sell, exchange, donate, and reserve books."
+          title={`Hi, ${user?.name || 'Student'}`}
+          subtitle="Manage your book searches, sales, swaps, donations, and reservations."
         />
 
-        <GlassCard style={styles.profileCard}>
-          <Text style={styles.profileIcon}>🎓</Text>
-
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.profileName, { color: theme.white }]}>
-              {user?.name}
-            </Text>
-
-            <Text style={[styles.profileText, { color: theme.muted }]}>
-              {user?.college || 'College not added'}
-            </Text>
-
-            <Text style={[styles.profileText, { color: theme.muted }]}>
-              Donation Badges: {user?.badgeCount || 0}
-            </Text>
-          </View>
-        </GlassCard>
+        <ActionCard
+          icon="🏠"
+          title="Home"
+          text="Return to main home page to explore categories and featured books."
+          button="GO TO HOME"
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+        />
 
         <ActionCard
           icon="🔎"
-          title="Find Books"
-          text="Search from library, local shop, and student marketplace."
-          button="Search Books"
+          title="Search Books"
+          text="Find books from library, local shop, and student marketplace."
+          button="SEARCH BOOKS"
           onPress={() => navigation.navigate('Search')}
         />
 
         <ActionCard
+          icon="🛒"
+          title="Buy Books"
+          text="Buy used or new books from local shops or other students."
+          button="EXPLORE MARKETPLACE"
+          onPress={() => navigation.navigate('Market')}
+        />
+
+        <ActionCard
           icon="📸"
-          title="Sell Book With Photo"
-          text="Take book photo, mention amount, condition, and upload."
-          button="Sell My Book"
+          title="Sell Books"
+          text="Upload a photo of your book, set condition, and sell it."
+          button="POST BOOK FOR SALE"
           onPress={() => navigation.navigate('SellBook')}
         />
 
         <ActionCard
           icon="🔁"
-          title="Exchange Book"
-          text="Send exchange request to another student and wait for acceptance."
-          button="Exchange Requests"
+          title="Exchange Books & My Exchanges"
+          text="Swap books directly with other students on campus."
+          button="EXCHANGE HUB"
           onPress={() => navigation.navigate('Exchange')}
         />
 
         <ActionCard
           icon="🎁"
-          title="Donate Book"
-          text="Donate old books to junior or needy students."
-          button="Donate / Request"
+          title="Donate Books & My Donations"
+          text="Donate old books to juniors or view your past donations."
+          button="DONATION HUB"
           onPress={() => navigation.navigate('Donate')}
         />
 
         <ActionCard
-          icon="📌"
-          title="Reserve Library Book"
-          text="Reserve available library books before visiting."
-          button="Find Library Books"
-          onPress={() => navigation.navigate('Search')}
+          icon="📋"
+          title="Book Reservations"
+          text="View your reserved library books and borrow status."
+          button="MY RESERVATIONS"
+          onPress={() => navigation.navigate('Notifications')}
+        />
+
+        <ActionCard
+          icon="🔔"
+          title="Notifications"
+          text="Check updates on your reservations, purchases, and requests."
+          button="VIEW NOTIFICATIONS"
+          onPress={() => navigation.navigate('Notifications')}
+        />
+
+        <ActionCard
+          icon="👤"
+          title="My Profile"
+          text="Update your details, college info, and preferences."
+          button="GO TO PROFILE"
+          onPress={() => navigation.navigate('Profile')}
         />
       </AppScrollView>
     </GlassScreen>
@@ -101,35 +119,39 @@ export default function StudentDashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     padding: 18,
+    paddingBottom: 110,
   },
-  profileCard: {
+  card: {
+    padding: 18,
+    marginVertical: 8,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 10,
   },
-  profileIcon: {
-    fontSize: 48,
-    marginRight: 14,
-  },
-  profileName: {
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  profileText: {
-    marginTop: 4,
-    fontWeight: '700',
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   icon: {
-    fontSize: 38,
-    marginBottom: 8,
+    fontSize: 22,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
+    flex: 1,
   },
   cardText: {
-    marginTop: 6,
+    marginTop: 2,
     marginBottom: 10,
-    lineHeight: 21,
-    fontWeight: '600',
+    lineHeight: 20,
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

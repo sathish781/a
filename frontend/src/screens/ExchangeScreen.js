@@ -6,7 +6,6 @@ import GlassCard from '../components/GlassCard';
 import AppButton from '../components/AppButton';
 import EmptyState from '../components/EmptyState';
 import api from '../api/client';
-import { colors } from '../utils/theme';
 
 export default function ExchangeScreen() {
   const [exchanges, setExchanges] = useState([]);
@@ -23,7 +22,6 @@ export default function ExchangeScreen() {
   async function updateExchange(id, status) {
     try {
       await api.patch(`/exchanges/${id}`, { status });
-
       Alert.alert('Success', `Exchange ${status}`);
       loadExchanges();
     } catch (error) {
@@ -41,10 +39,12 @@ export default function ExchangeScreen() {
   return (
     <GlassScreen>
       <View style={styles.container}>
-        <Text style={styles.title}>Exchange Requests</Text>
-        <Text style={styles.subtitle}>
-          Accept or reject student book exchange requests.
-        </Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Book Exchange Requests</Text>
+          <Text style={styles.subtitle}>
+            Accept or reject student book swap requests.
+          </Text>
+        </View>
 
         <FlatList
           data={exchanges}
@@ -53,35 +53,42 @@ export default function ExchangeScreen() {
           ListEmptyComponent={
             <EmptyState
               title="No exchange requests"
-              message="Your exchange requests will appear here."
+              message="Your book swap requests will appear here."
             />
           }
           renderItem={({ item }) => (
-            <GlassCard>
-              <Text style={styles.cardTitle}>
-                {item.requestedListing?.book?.title || 'Requested Book'}
-              </Text>
+            <GlassCard style={styles.exchangeCard}>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle}>
+                  {item.requestedListing?.book?.title || 'Requested Book'}
+                </Text>
+                <View style={styles.redBadge}>
+                  <Text style={styles.redBadgeText}>{item.status}</Text>
+                </View>
+              </View>
 
-              <Text style={styles.cardText}>Requester: {item.requester?.name}</Text>
-              <Text style={styles.cardText}>Owner: {item.owner?.name}</Text>
-              <Text style={styles.cardText}>Message: {item.message}</Text>
-
-              <Text style={styles.badge}>Status: {item.status}</Text>
+              <Text style={styles.cardText}>👤 Requester: {item.requester?.name || 'Student'}</Text>
+              <Text style={styles.cardText}>📚 Owner: {item.owner?.name || 'Owner'}</Text>
+              {item.message ? (
+                <Text style={styles.messageText}>💬 "{item.message}"</Text>
+              ) : null}
 
               {item.status === 'pending' && (
-                <>
+                <View style={styles.btnRow}>
                   <AppButton
-                    title="Accept"
+                    title="ACCEPT"
                     variant="success"
                     onPress={() => updateExchange(item._id, 'accepted')}
+                    style={{ flex: 1, marginRight: 6 }}
                   />
 
                   <AppButton
-                    title="Reject"
+                    title="REJECT"
                     variant="danger"
                     onPress={() => updateExchange(item._id, 'rejected')}
+                    style={{ flex: 1, marginLeft: 6 }}
                   />
-                </>
+                </View>
               )}
             </GlassCard>
           )}
@@ -94,37 +101,70 @@ export default function ExchangeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 18
+    padding: 18,
+  },
+  header: {
+    marginBottom: 16,
   },
   title: {
-    color: colors.white,
-    fontSize: 30,
-    fontWeight: '900'
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.3,
   },
   subtitle: {
-    color: colors.muted,
-    marginTop: 6,
-    marginBottom: 14
+    color: '#94a3b8',
+    marginTop: 4,
+    fontSize: 14,
+  },
+  exchangeCard: {
+    padding: 18,
+    marginVertical: 8,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   cardTitle: {
-    color: colors.white,
+    color: '#ffffff',
     fontSize: 18,
-    fontWeight: '900'
+    fontWeight: '800',
+    flex: 1,
+    marginRight: 10,
+  },
+  redBadge: {
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(99, 102, 241, 0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  redBadgeText: {
+    color: '#6366f1',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   cardText: {
-    color: colors.muted,
-    marginTop: 5,
-    lineHeight: 20
+    color: '#94a3b8',
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: '500',
   },
-  badge: {
-    color: colors.white,
-    backgroundColor: 'rgba(96,165,250,0.22)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginTop: 10,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-    fontWeight: '800'
-  }
+  messageText: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    marginTop: 14,
+  },
 });

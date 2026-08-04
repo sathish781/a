@@ -2,32 +2,37 @@ const mongoose = require('mongoose');
 
 const reservationSchema = new mongoose.Schema(
   {
+    book: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Book',
+      required: true
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true
     },
-
-    sourceType: {
-      type: String,
-      enum: ['library', 'shop'],
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
       required: true
     },
-
-    libraryBook: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'LibraryBook'
+    reservationDate: {
+      type: Date,
+      default: Date.now
     },
-
-    shopBook: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'ShopBook'
+    expiryDate: {
+      type: Date,
+      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days default
     },
-
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'cancelled', 'collected'],
+      enum: ['pending', 'accepted', 'rejected', 'fulfilled', 'cancelled'],
       default: 'pending'
+    },
+    notes: {
+      type: String,
+      default: ''
     }
   },
   {

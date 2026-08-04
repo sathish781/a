@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 
 const {
   register,
@@ -8,7 +8,7 @@ const {
   updateProfile
 } = require('../controllers/authController');
 
-const protect = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -19,3 +19,4 @@ router.get('/me', protect, getProfile);
 router.put('/profile', protect, updateProfile);
 
 module.exports = router;
+

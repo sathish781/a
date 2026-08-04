@@ -6,7 +6,7 @@ import { darkTheme, lightTheme } from '../utils/theme';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [themeMode, setThemeMode] = useState('dark');
+  const [themeMode, setThemeMode] = useState('light');
 
   useEffect(() => {
     loadTheme();

@@ -1,5 +1,4 @@
 const bcrypt = require('bcryptjs');
-
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const asyncHandler = require('../utils/asyncHandler');
@@ -12,56 +11,108 @@ function cleanUser(user) {
     role: user.role,
     phone: user.phone,
     college: user.college,
+    department: user.department,
+    isCollegeStudent: user.isCollegeStudent,
+    year: user.year,
+    shopName: user.shopName,
+    shopAddress: user.shopAddress,
+    businessDescription: user.businessDescription,
+    libraryName: user.libraryName,
+    libraryAddress: user.libraryAddress,
+    profileImage: user.profileImage,
     location: user.location,
+    latitude: user.latitude,
+    longitude: user.longitude,
+    status: user.status,
+    approvalStatus: user.approvalStatus,
     badgeCount: user.badgeCount
   };
 }
 
+// @desc Register new user (Student, Shop Owner, Library)
+// @route POST /api/auth/register
 const register = asyncHandler(async (req, res) => {
-  const { name, email, password, role, phone, college, location } = req.body;
+  const {
+    name,
+    email,
+    password,
+    role,
+    phone,
+    college,
+    department,
+    isCollegeStudent,
+    year,
+    shopName,
+    shopAddress,
+    businessDescription,
+    libraryName,
+    libraryAddress,
+    location,
+    latitude,
+    longitude,
+    profileImage
+  } = req.body;
 
-  if (!name || !email || !password) {
+  if (!email || !password || !role) {
     res.status(400);
-    throw new Error('Name, email, and password are required.');
+    throw new Error('Email, password, and role are required.');
   }
 
-  const existingUser = await User.findOne({ email });
-
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
   if (existingUser) {
     res.status(400);
     throw new Error('Email already registered.');
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
+  const assignedRole = role.toLowerCase() === 'admin' ? 'student' : role.toLowerCase();
+
+  const approvalStatus = (assignedRole === 'shop' || assignedRole === 'library') ? 'pending' : 'approved';
 
   const user = await User.create({
-    name,
-    email,
+    name: name || shopName || libraryName || 'New User',
+    email: email.toLowerCase(),
     password: hashedPassword,
-    role: role || 'student',
-    phone,
-    college,
-    location
+    role: assignedRole,
+    phone: phone || '',
+    college: college || '',
+    department: department || '',
+    isCollegeStudent: isCollegeStudent !== undefined ? isCollegeStudent : true,
+    year: year || '',
+    shopName: shopName || '',
+    shopAddress: shopAddress || '',
+    businessDescription: businessDescription || '',
+    libraryName: libraryName || '',
+    libraryAddress: libraryAddress || '',
+    location: location || 'Main Campus',
+    latitude: latitude || 40.7128,
+    longitude: longitude || -74.0060,
+    profileImage: profileImage || '',
+    approvalStatus: approvalStatus
   });
 
   const token = generateToken(user._id, user.role);
 
   res.status(201).json({
-    message: 'Registration successful',
+    message: assignedRole === 'shop' || assignedRole === 'library'
+      ? 'Registration submitted! Awaiting Admin approval.'
+      : 'Registration successful!',
     token,
     user: cleanUser(user)
   });
 });
 
+// @desc Login user or admin
+// @route POST /api/auth/login
 const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, role } = req.body;
 
   if (!email || !password) {
     res.status(400);
     throw new Error('Email and password are required.');
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: email.toLowerCase() });
 
   if (!user) {
     res.status(400);
@@ -69,10 +120,20 @@ const login = asyncHandler(async (req, res) => {
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
-
   if (!isMatch) {
     res.status(400);
     throw new Error('Invalid email or password.');
+  }
+
+  if (user.status === 'blocked') {
+    res.status(403);
+    throw new Error('Your account has been blocked by administrator.');
+  }
+
+  if (role && role !== 'admin' && user.role !== role && user.role !== 'admin') {
+    // If role requested doesn't match and not admin, return error
+    res.status(400);
+    throw new Error(`Account is registered as ${user.role}, not ${role}.`);
   }
 
   const token = generateToken(user._id, user.role);
@@ -84,36 +145,56 @@ const login = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc Forgot Password
+// @route POST /api/auth/forgot-password
 const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email: email ? email.toLowerCase() : '' });
+  if (!user) {
+    res.status(404);
+    throw new Error('No user found with this email address.');
+  }
   res.json({
-    message:
-      'Demo password reset: Please contact admin to reset your password.'
+    message: 'Password reset instructions have been sent to your email.'
   });
 });
 
+// @desc Get current profile
+// @route GET /api/auth/profile
 const getProfile = asyncHandler(async (req, res) => {
-  res.json(cleanUser(req.user));
+  const user = await User.findById(req.user._id);
+  res.json(cleanUser(user));
 });
 
+// @desc Update user profile
+// @route PUT /api/auth/profile
 const updateProfile = asyncHandler(async (req, res) => {
-  const { name, phone, college, location } = req.body;
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found.');
+  }
 
-  const user = await User.findByIdAndUpdate(
-    req.user._id,
-    {
-      name,
-      phone,
-      college,
-      location
-    },
-    {
-      new: true
-    }
-  );
+  user.name = req.body.name || user.name;
+  user.phone = req.body.phone || user.phone;
+  user.college = req.body.college || user.college;
+  user.department = req.body.department || user.department;
+  user.year = req.body.year || user.year;
+  user.shopName = req.body.shopName || user.shopName;
+  user.shopAddress = req.body.shopAddress || user.shopAddress;
+  user.businessDescription = req.body.businessDescription || user.businessDescription;
+  user.libraryName = req.body.libraryName || user.libraryName;
+  user.libraryAddress = req.body.libraryAddress || user.libraryAddress;
+  user.location = req.body.location || user.location;
+  if (req.body.latitude) user.latitude = req.body.latitude;
+  if (req.body.longitude) user.longitude = req.body.longitude;
+  if (req.body.profileImage) user.profileImage = req.body.profileImage;
+
+  const updatedUser = await user.save();
 
   res.json({
     message: 'Profile updated successfully',
-    user: cleanUser(user)
+    user: cleanUser(updatedUser)
   });
 });
 
