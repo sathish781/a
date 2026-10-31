@@ -1,58 +1,88 @@
 import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet, ScrollView, Alert, ActivityIndicator, View, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, ScrollView, Alert, ActivityIndicator, View, TouchableOpacity, FlatList, TextInput } from 'react-native';
 
 import NeumorphicScreen from '../components/NeumorphicScreen';
 import NeumorphicCard from '../components/NeumorphicCard';
 import NeumorphicStatCard from '../components/NeumorphicStatCard';
 import api from '../api/client';
 import { useThemeMode } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/AppButton';
+import AppTextInput from '../components/AppTextInput';
 
-export default function AdminDashboardScreen() {
+export default function AdminDashboardScreen({ navigation }) {
   const { theme } = useThemeMode();
-  const [data, setData] = useState(null);
+  const { logout } = useAuth();
+  const [stats, setStats] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // overview, users, students, shops, libraries, books, marketplace, donations, exchanges, settings
-  const [loadingAction, setLoadingAction] = useState(false);
+  const [latestUsers, setLatestUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Announcement State
+  const [annTitle, setAnnTitle] = useState('');
+  const [annMsg, setAnnMsg] = useState('');
+  const [sendingAnn, setSendingAnn] = useState(false);
 
   async function loadDashboard() {
     try {
-      const res = await api.get('/reports/dashboard');
-      setData(res.data);
+      setLoading(true);
+      const [statsRes, usersRes] = await Promise.all([
+        api.get('/admin/stats'),
+        api.get('/admin/users?limit=5')
+      ]);
+      setStats(statsRes.data);
+      setLatestUsers(usersRes.data.slice(0, 5));
     } catch (error) {
       console.log('Admin load err:', error);
-      // Fallback structure if server connects
-      setData({
-        totalUsers: 142,
-        totalStudents: 98,
-        totalLibraries: 18,
-        totalShops: 26,
-        totalBooks: 450,
-        totalDonations: 64,
-        totalExchanges: 89,
-        todayActivity: 23,
-        booksByExam: [],
-        latestUsers: [],
+      Alert.alert('Notice', 'Using fallback admin data. Check backend connection.');
+      setStats({
+        totalUsers: 0,
+        totalStudents: 0,
+        totalLibraries: 0,
+        totalShops: 0,
+        totalBooks: 0,
+        totalDonations: 0,
+        totalExchanges: 0,
+        todayActivity: { newUsers: 0 }
       });
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadDashboard();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadDashboard();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
-  const handleAdminAction = async (actionName, targetId) => {
+  const handleBlockUser = async (userId) => {
     try {
-      setLoadingAction(true);
-      Alert.alert('Admin Action Success', `Action "${actionName}" executed successfully.`);
+      await api.patch(`/admin/users/${userId}/block`);
+      Alert.alert('Success', 'User status toggled.');
       loadDashboard();
     } catch (err) {
-      Alert.alert('Action Failed', 'Could not complete admin action.');
-    } finally {
-      setLoadingAction(false);
+      Alert.alert('Error', 'Action failed');
     }
   };
 
-  if (!data) {
+  const handleSendAnnouncement = async () => {
+    if (!annTitle || !annMsg) return Alert.alert('Error', 'Fill all fields');
+    try {
+      setSendingAnn(true);
+      await api.post('/admin/announcement', { title: annTitle, message: annMsg });
+      Alert.alert('Broadcasted!', 'Your announcement was sent to all users.');
+      setAnnTitle('');
+      setAnnMsg('');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to send broadcast.');
+    } finally {
+      setSendingAnn(false);
+    }
+  };
+
+  if (loading && !stats) {
     return (
       <NeumorphicScreen>
         <View style={styles.loadingBox}>
@@ -62,6 +92,131 @@ export default function AdminDashboardScreen() {
     );
   }
 
+  const renderActiveModule = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <View style={{ marginTop: 14 }}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Activity</Text>
+            {latestUsers.map((item) => (
+              <NeumorphicCard key={item._id}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>{item.name}</Text>
+                <Text style={[styles.cardText, { color: theme.muted }]}>{item.email}</Text>
+                <View style={styles.actionRow}>
+                  <View style={[styles.badge, { backgroundColor: theme.primary }]}>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>{item.role.toUpperCase()}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleBlockUser(item._id)}>
+                    <Text style={[styles.actionBtnText, { color: item.status === 'blocked' ? theme.success : '#ef4444' }]}>
+                      {item.status === 'blocked' ? 'Unblock' : 'Block User'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </NeumorphicCard>
+            ))}
+          </View>
+        );
+      case 'users':
+        return (
+          <NeumorphicCard>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>User Management</Text>
+            <Text style={[styles.cardText, { color: theme.muted }]}>Manage all platform accounts, roles and access permissions.</Text>
+            <View style={styles.btnGrid}>
+              <AppButton title="OPEN USER MANAGER" onPress={() => navigation.navigate('UserManagement')} />
+              <AppButton title="VIEW SYSTEM ALERTS" variant="dark" onPress={() => navigation.navigate('Notifications')} style={{ marginTop: 8 }} />
+            </View>
+          </NeumorphicCard>
+        );
+      case 'books':
+        return (
+          <NeumorphicCard>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Book Management</Text>
+            <Text style={[styles.cardText, { color: theme.muted }]}>View and manage all book titles registered on the platform.</Text>
+            <View style={styles.btnGrid}>
+              <AppButton title="OPEN BOOK CATALOG" onPress={() => navigation.navigate('AdminBookCatalog')} />
+            </View>
+          </NeumorphicCard>
+        );
+      case 'shops':
+      case 'libraries':
+        return (
+          <NeumorphicCard>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>{activeTab === 'shops' ? 'Shop' : 'Library'} Approvals</Text>
+            <Text style={[styles.cardText, { color: theme.muted }]}>Review pending registrations for {activeTab}.</Text>
+            <View style={styles.btnGrid}>
+              <AppButton title="MANAGE APPROVALS" onPress={() => navigation.navigate('OrganizationApproval')} />
+            </View>
+          </NeumorphicCard>
+        );
+      case 'marketplace':
+      case 'donations':
+      case 'exchanges':
+        return (
+          <NeumorphicCard>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>{activeTab.toUpperCase()} MONITOR</Text>
+            <Text style={[styles.cardText, { color: theme.muted }]}>Audit and monitor real-time transactions on the platform.</Text>
+            <View style={styles.btnGrid}>
+              <AppButton
+                title={`VIEW ${activeTab.toUpperCase()} HUB`}
+                onPress={() => navigation.navigate(activeTab === 'marketplace' ? 'Market' : activeTab === 'donations' ? 'Donate' : 'Exchange')}
+              />
+            </View>
+          </NeumorphicCard>
+        );
+      case 'settings':
+        return (
+          <View>
+            <NeumorphicCard>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>📢 Send Global Announcement</Text>
+              <Text style={[styles.cardText, { color: theme.muted, marginBottom: 12 }]}>Send a push notification to every registered user on the platform.</Text>
+
+              <AppTextInput
+                placeholder="Announcement Title"
+                value={annTitle}
+                onChangeText={setAnnTitle}
+              />
+              <AppTextInput
+                placeholder="Message Content"
+                value={annMsg}
+                multiline
+                onChangeText={setAnnMsg}
+              />
+
+              <AppButton
+                title={sendingAnn ? "SENDING..." : "BROADCAST TO ALL USERS"}
+                onPress={handleSendAnnouncement}
+                loading={sendingAnn}
+              />
+            </NeumorphicCard>
+
+            <NeumorphicCard style={{ marginTop: 15 }}>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>⚙️ System Maintenance</Text>
+              <View style={styles.btnGrid}>
+                <AppButton title="CHECK LIBRARY OVERDUE" onPress={async () => {
+                  try {
+                    const res = await api.post('/admin/check-overdue');
+                    Alert.alert('Scan Complete', res.data.message);
+                  } catch (e) {
+                    Alert.alert('Error', 'Failed to scan for overdue items.');
+                  }
+                }} />
+                <AppButton title="GENERATE DB BACKUP" variant="dark" onPress={() => Alert.alert('Maintenance', 'Database snapshot task triggered.')} style={{ marginTop: 8 }} />
+                <AppButton title="PURGE OLD LOGS" variant="dark" onPress={() => Alert.alert('Maintenance', 'System logs cleared.')} style={{ marginTop: 8 }} />
+                <AppButton title="LOGOUT ADMIN SESSION" onPress={logout} style={{ marginTop: 20 }} />
+              </View>
+            </NeumorphicCard>
+          </View>
+        );
+      default:
+        return (
+          <NeumorphicCard>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Module Placeholder</Text>
+            <Text style={[styles.cardText, { color: theme.muted }]}>Real management screen coming soon for {activeTab}.</Text>
+          </NeumorphicCard>
+        );
+    }
+  };
+
   return (
     <NeumorphicScreen>
       <ScrollView contentContainerStyle={styles.container}>
@@ -70,14 +225,14 @@ export default function AdminDashboardScreen() {
 
         {/* Top Metric Cards */}
         <View style={styles.grid}>
-          <NeumorphicStatCard icon="👥" label="Total Users" value={data.totalUsers || 0} />
-          <NeumorphicStatCard icon="🎓" label="Total Students" value={data.totalStudents || 0} />
-          <NeumorphicStatCard icon="🏛️" label="Total Libraries" value={data.totalLibraries || 0} />
-          <NeumorphicStatCard icon="🏪" label="Total Shops" value={data.totalShops || 0} />
-          <NeumorphicStatCard icon="📚" label="Total Books" value={data.totalBooks || 0} />
-          <NeumorphicStatCard icon="🎁" label="Total Donations" value={data.totalDonations || 0} />
-          <NeumorphicStatCard icon="🔁" label="Total Exchanges" value={data.totalExchanges || 0} />
-          <NeumorphicStatCard icon="⚡" label="Today's Activity" value={data.todayActivity || 0} />
+          <NeumorphicStatCard icon="👥" label="Total Users" value={stats?.totalUsers || 0} />
+          <NeumorphicStatCard icon="🎓" label="Total Students" value={stats?.totalStudents || 0} />
+          <NeumorphicStatCard icon="🏛️" label="Total Libraries" value={stats?.totalLibraries || 0} />
+          <NeumorphicStatCard icon="🏪" label="Total Shops" value={stats?.totalShops || 0} />
+          <NeumorphicStatCard icon="📚" label="Total Books" value={stats?.totalBooks || 0} />
+          <NeumorphicStatCard icon="🎁" label="Donations" value={stats?.totalDonations || 0} />
+          <NeumorphicStatCard icon="🔁" label="Exchanges" value={stats?.totalExchanges || 0} />
+          <NeumorphicStatCard icon="⚡" label="New Users Today" value={stats?.todayActivity?.newUsers || 0} />
         </View>
 
         {/* Module Navigation Tabs */}
@@ -86,10 +241,8 @@ export default function AdminDashboardScreen() {
           {[
             { id: 'overview', label: '📊 Overview' },
             { id: 'users', label: '👤 User Mgt' },
-            { id: 'students', label: '🎓 Student Mgt' },
             { id: 'shops', label: '🏪 Shop Mgt' },
             { id: 'libraries', label: '🏛️ Library Mgt' },
-            { id: 'books', label: '📚 Book Mgt' },
             { id: 'marketplace', label: '🛒 Marketplace' },
             { id: 'donations', label: '🎁 Donations' },
             { id: 'exchanges', label: '🔁 Exchanges' },
@@ -113,211 +266,27 @@ export default function AdminDashboardScreen() {
           ))}
         </ScrollView>
 
-        {/* Active Module Panel */}
-        {activeTab === 'overview' && (
-          <View style={{ marginTop: 14 }}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Latest Platform Users</Text>
-            {(data.latestUsers || []).map((item, idx) => (
-              <NeumorphicCard key={item._id || idx}>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>{item.name}</Text>
-                <Text style={[styles.cardText, { color: theme.muted }]}>{item.email}</Text>
-                <View style={styles.actionRow}>
-                  <Text style={[styles.badge, { backgroundColor: theme.primary, color: '#ffffff' }]}>{item.role}</Text>
-                  <TouchableOpacity onPress={() => handleAdminAction('Block User', item._id)}>
-                    <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Block User</Text>
-                  </TouchableOpacity>
-                </View>
-              </NeumorphicCard>
-            ))}
-          </View>
-        )}
+        {renderActiveModule()}
 
-        {activeTab === 'users' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>User Management</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>View, block, delete users, reset passwords, or assign admin roles.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="View All Users" onPress={() => handleAdminAction('View Users')} />
-              <AppButton title="Block User" variant="dark" onPress={() => handleAdminAction('Block User')} style={{ marginTop: 6 }} />
-              <AppButton title="Reset Password" variant="dark" onPress={() => handleAdminAction('Reset Password')} style={{ marginTop: 6 }} />
-              <AppButton title="Assign Role" onPress={() => handleAdminAction('Assign Role')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'students' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Student Management</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Track student accounts, donation records, exchange logs, and purchases.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="View Student Roster" onPress={() => handleAdminAction('View Students')} />
-              <AppButton title="Donation History" variant="dark" onPress={() => handleAdminAction('View Donations')} style={{ marginTop: 6 }} />
-              <AppButton title="Exchange History" variant="dark" onPress={() => handleAdminAction('View Exchanges')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'shops' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Shop Management</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Approve or reject bookstore registrations, inspect inventory, and view sales revenue.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="Approve Shop" onPress={() => handleAdminAction('Approve Shop')} />
-              <AppButton title="Reject Shop" variant="dark" onPress={() => handleAdminAction('Reject Shop')} style={{ marginTop: 6 }} />
-              <AppButton title="View Shop Inventory" variant="dark" onPress={() => handleAdminAction('View Shop Inventory')} style={{ marginTop: 6 }} />
-              <AppButton title="Sales Analytics" onPress={() => handleAdminAction('Shop Sales Analytics')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'libraries' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Library Management</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Approve campus libraries, inspect book catalogs, borrow history, and reservation holds.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="Approve Library" onPress={() => handleAdminAction('Approve Library')} />
-              <AppButton title="Manage Books Catalog" variant="dark" onPress={() => handleAdminAction('Manage Library Books')} style={{ marginTop: 6 }} />
-              <AppButton title="Borrow & Hold Reports" variant="dark" onPress={() => handleAdminAction('Borrow Reports')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'books' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Book Management</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Manage global categories, edit book details, or purge inactive listings.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="View All System Books" onPress={() => handleAdminAction('View All Books')} />
-              <AppButton title="Categories Manager" variant="dark" onPress={() => handleAdminAction('Manage Categories')} style={{ marginTop: 6 }} />
-              <AppButton title="Delete Book Listing" variant="dark" onPress={() => handleAdminAction('Delete Book')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'marketplace' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Marketplace Control</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Approve, reject, or pull down user sale listings.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="Approve Listing" onPress={() => handleAdminAction('Approve Listing')} />
-              <AppButton title="Reject Listing" variant="dark" onPress={() => handleAdminAction('Reject Listing')} style={{ marginTop: 6 }} />
-              <AppButton title="Remove Spam Listing" variant="dark" onPress={() => handleAdminAction('Remove Listing')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'donations' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Donation System</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Moderate student donation posts and library receiving notifications.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="Approve Donation" onPress={() => handleAdminAction('Approve Donation')} />
-              <AppButton title="Reject Donation" variant="dark" onPress={() => handleAdminAction('Reject Donation')} style={{ marginTop: 6 }} />
-              <AppButton title="Delete Donation Record" variant="dark" onPress={() => handleAdminAction('Delete Donation')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'exchanges' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Exchange Control</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Monitor pending and completed book swaps between campus users.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="Pending Exchanges" onPress={() => handleAdminAction('View Pending Exchanges')} />
-              <AppButton title="Completed Exchanges" variant="dark" onPress={() => handleAdminAction('View Completed Exchanges')} style={{ marginTop: 6 }} />
-              <AppButton title="Exchange Analytics Report" variant="dark" onPress={() => handleAdminAction('Exchange Reports')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
-
-        {activeTab === 'settings' && (
-          <NeumorphicCard>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>System Settings & Backup</Text>
-            <Text style={[styles.cardText, { color: theme.muted }]}>Manage global app permissions, push notifications, and trigger database backups.</Text>
-            <View style={styles.btnGrid}>
-              <AppButton title="Manage App Roles" onPress={() => handleAdminAction('Manage Roles')} />
-              <AppButton title="Notification Settings" variant="dark" onPress={() => handleAdminAction('Notification Settings')} style={{ marginTop: 6 }} />
-              <AppButton title="Run Database Backup" onPress={() => handleAdminAction('Database Backup')} style={{ marginTop: 6 }} />
-            </View>
-          </NeumorphicCard>
-        )}
       </ScrollView>
     </NeumorphicScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 18,
-    paddingBottom: 110
-  },
-  loadingBox: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '900'
-  },
-  subtitle: {
-    marginTop: 4,
-    marginBottom: 14,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between'
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 20,
-    marginBottom: 10
-  },
-  tabScroll: {
-    marginBottom: 12,
-  },
-  moduleTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '900'
-  },
-  cardText: {
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  badge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    fontSize: 12,
-    fontWeight: '800'
-  },
-  actionBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  btnGrid: {
-    marginTop: 12,
-  },
+  container: { padding: 18, paddingBottom: 110 },
+  loadingBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 28, fontWeight: '900' },
+  subtitle: { marginTop: 4, marginBottom: 14, fontSize: 13, lineHeight: 18 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  sectionTitle: { fontSize: 20, fontWeight: '900', marginTop: 20, marginBottom: 10 },
+  tabScroll: { marginBottom: 12 },
+  moduleTab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, marginRight: 8 },
+  tabText: { fontSize: 13, fontWeight: '700' },
+  cardTitle: { fontSize: 18, fontWeight: '900' },
+  cardText: { fontSize: 13, marginTop: 4, lineHeight: 18 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  actionBtnText: { fontSize: 13, fontWeight: '800' },
+  btnGrid: { marginTop: 12 },
 });

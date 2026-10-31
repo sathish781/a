@@ -1,419 +1,335 @@
-import React from 'react';
-import { Text, StyleSheet, View, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Text,
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  Animated,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import GlassScreen from '../components/GlassScreen';
 import GlassCard from '../components/GlassCard';
-import AppButton from '../components/AppButton';
 import AppScrollView from '../components/AppScrollView';
-import AppHeader from '../components/AppHeader';
+import BentoCard from '../components/BentoCard';
+import SectionHeader from '../components/SectionHeader';
+import AnimatedNumber from '../components/AnimatedNumber';
+import { StatCardSkeleton } from '../components/SkeletonLoader';
 import { useAuth } from '../context/AuthContext';
-import { radius } from '../utils/theme';
 import { useThemeMode } from '../context/ThemeContext';
-
-function ExploreNavItem({ icon, title, text, onPress }) {
-  const { theme } = useThemeMode();
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ width: '100%' }}>
-      <GlassCard style={styles.navCard}>
-        <View style={styles.navCardRow}>
-          <View style={[styles.iconCircle, { backgroundColor: theme.mode === 'light' ? '#f8fafc' : '#090a14', borderColor: theme.glassBorder }]}>
-            <Text style={styles.navCardIcon}>{icon}</Text>
-          </View>
-          <View style={styles.navCardTextContainer}>
-            <Text style={[styles.navCardTitle, { color: theme.text }]} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text style={[styles.navCardSubtext, { color: theme.muted }]} numberOfLines={1}>
-              {text}
-            </Text>
-          </View>
-          <Text style={[styles.arrowIcon, { color: theme.primary }]}>→</Text>
-        </View>
-      </GlassCard>
-    </TouchableOpacity>
-  );
-}
-
-function StatBox({ icon, label, value }) {
-  const { theme } = useThemeMode();
-  return (
-    <View style={[styles.statBox, { borderColor: theme.glassBorder, backgroundColor: theme.mode === 'light' ? 'rgba(255,255,255,0.7)' : 'rgba(15, 17, 32, 0.6)' }]}>
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={[styles.statValue, { color: theme.primary }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.muted }]}>{label}</Text>
-    </View>
-  );
-}
+import api from '../api/client';
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
-  const { theme } = useThemeMode();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+  const { theme, themeMode } = useThemeMode();
+  const isLight = themeMode === 'light';
 
-  function openDashboard() {
-    if (user?.role === 'student') {
-      navigation.navigate('StudentDashboard');
-    } else if (user?.role === 'library' || user?.role === 'library_staff') {
-      navigation.navigate('LibraryDashboard');
-    } else if (user?.role === 'shop' || user?.role === 'shop_owner') {
-      navigation.navigate('ShopDashboard');
-    } else if (user?.role === 'admin') {
-      navigation.navigate('AdminRoleDashboard');
-    } else {
-      navigation.navigate('StudentDashboard');
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // Micro-interaction animations
+  const avatarScale = useRef(new Animated.Value(1)).current;
+  const heroScale = useRef(new Animated.Value(1)).current;
+  const searchScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        setLoadingStats(true);
+        const res = await api.get('/stats/overview');
+        setStats(res.data);
+      } catch (e) {
+        setStats({ totalBooks: 0, totalLibraries: 0, totalShops: 0, totalExchanges: 0 });
+      } finally {
+        setLoadingStats(false);
+      }
     }
+    fetchStats();
+  }, []);
+
+  function handleAvatarPress() {
+    Animated.sequence([
+      Animated.timing(avatarScale, { toValue: 0.88, duration: 100, useNativeDriver: true }),
+      Animated.spring(avatarScale, { toValue: 1, friction: 5, useNativeDriver: true }),
+    ]).start(() => navigation.navigate('Profile'));
   }
 
-  const exploreItems = [
-    {
-      icon: '🔎',
-      title: 'Smart Search',
-      text: 'Find books by title, author or subject',
-      onPress: () => navigation.navigate('Search'),
-    },
-    {
-      icon: '📸',
-      title: 'Sell Books',
-      text: 'Upload photos & list your book',
-      onPress: () => navigation.navigate('SellBook'),
-    },
-    {
-      icon: '💰',
-      title: 'Compare Prices',
-      text: 'Library vs student vs shop prices',
-      onPress: () => navigation.navigate('Search'),
-    },
-    {
-      icon: '🔁',
-      title: 'Book Exchange',
-      text: 'Swap books directly with campus peers',
-      onPress: () => navigation.navigate('Exchange'),
-    },
-    {
-      icon: '🎁',
-      title: 'Donate Books',
-      text: 'Give away or request book donations',
-      onPress: () => navigation.navigate('Donate'),
-    },
-    {
-      icon: '🔔',
-      title: 'Alerts & Updates',
-      text: 'Track reservations and hold status',
-      onPress: () => navigation.navigate('Notifications'),
-    },
-    {
-      icon: '👤',
-      title: 'My Profile',
-      text: 'Manage profile and preferences',
-      onPress: () => navigation.navigate('Profile'),
-    },
-  ];
+  function openDashboard() {
+    const roleMap = {
+      student: 'StudentDashboard',
+      library: 'LibraryDashboard',
+      shop: 'ShopDashboard',
+      admin: 'AdminRoleDashboard',
+    };
+    navigation.navigate(roleMap[user?.role] || 'StudentDashboard');
+  }
 
   return (
     <GlassScreen>
       <AppScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.dashboardWrapper, { flexDirection: isDesktop ? 'row' : 'column' }]}>
-          
-          {/* LEFT SIDEBAR: EXPLORE FEATURES */}
-          <View style={[styles.sidebarColumn, isDesktop && styles.sidebarDesktop]}>
-            <GlassCard style={styles.sidebarContainer}>
-              <View style={styles.sidebarHeader}>
-                <View style={[styles.sidebarBadge, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.sidebarBadgeIcon}>🧭</Text>
-                </View>
-                <View>
-                  <Text style={[styles.sidebarTitle, { color: theme.text }]}>Explore Features</Text>
-                  <Text style={[styles.sidebarSubtitle, { color: theme.muted }]}>Quick Navigation Menu</Text>
-                </View>
-              </View>
 
-              <View style={styles.navList}>
-                {exploreItems.map((item, index) => (
-                  <ExploreNavItem
-                    key={index}
-                    icon={item.icon}
-                    title={item.title}
-                    text={item.text}
-                    onPress={item.onPress}
-                  />
-                ))}
-              </View>
-            </GlassCard>
+        {/* Header Section */}
+        <View style={styles.header}>
+          <View>
+            <Text style={[styles.welcome, { color: theme.muted }]}>WELCOME BACK,</Text>
+            <Text style={[styles.name, { color: theme.text }]}>
+              {user?.name?.split(' ')[0] || 'User'} 👋
+            </Text>
           </View>
+          <TouchableOpacity activeOpacity={1} onPress={handleAvatarPress}>
+            <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
+              <LinearGradient colors={[theme.primary, theme.accent]} style={styles.avatar}>
+                <Text style={styles.avatarText}>{(user?.name || 'U')[0]}</Text>
+              </LinearGradient>
+            </Animated.View>
+          </TouchableOpacity>
+        </View>
 
-          {/* RIGHT MAIN PANEL: DASHBOARD HERO & STATS */}
-          <View style={[styles.mainColumn, isDesktop && styles.mainDesktop]}>
-            <AppHeader
-              icon="📚"
-              label={`Welcome, ${user?.name || user?.shopName || user?.libraryName || 'User'}`}
-              title="BookConnect"
-              subtitle="Find books from library, local shops, and student marketplace."
-            />
+        {/* Animated Search Bar Launcher */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPressIn={() => Animated.spring(searchScale, { toValue: 0.98, useNativeDriver: true }).start()}
+          onPressOut={() => Animated.spring(searchScale, { toValue: 1, friction: 6, useNativeDriver: true }).start()}
+          onPress={() => navigation.navigate('Search')}
+        >
+          <Animated.View
+            style={[
+              styles.searchBar,
+              {
+                backgroundColor: isLight ? '#ffffff' : theme.backgroundTwo,
+                borderColor: theme.glassBorder,
+                transform: [{ scale: searchScale }],
+              },
+            ]}
+          >
+            <Text style={{ fontSize: 18, marginRight: 10 }}>🔍</Text>
+            <Text style={[styles.searchPlaceholder, { color: theme.muted }]}>
+              Search books, authors, ISBN...
+            </Text>
+          </Animated.View>
+        </TouchableOpacity>
 
-            {/* Main Hero Banner */}
-            <GlassCard style={styles.hero}>
-              <View style={[styles.heroBadgeCircle, { backgroundColor: theme.mode === 'light' ? '#f8fafc' : '#090a14', borderColor: theme.primary }]}>
-                <Text style={styles.heroIcon}>📘</Text>
-              </View>
-
-              <Text style={[styles.heroTitle, { color: theme.text }]}>
-                One Search, Three Sources
-              </Text>
-
-              <Text style={[styles.heroText, { color: theme.muted }]}>
-                Borrow from library, buy from local shop, or exchange with students directly.
-              </Text>
-
-              <View style={styles.badgeRow}>
-                <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: theme.mode === 'light' ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.15)' }]}>
-                  <Text style={[styles.redBadgeText, { color: theme.primary }]}>Role: {user?.role || 'student'}</Text>
+        {/* Hero Dashboard Card */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPressIn={() => Animated.spring(heroScale, { toValue: 0.97, useNativeDriver: true }).start()}
+          onPressOut={() => Animated.spring(heroScale, { toValue: 1, friction: 6, useNativeDriver: true }).start()}
+          onPress={openDashboard}
+        >
+          <Animated.View style={{ transform: [{ scale: heroScale }] }}>
+            <LinearGradient
+              colors={[theme.primary, theme.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroCard}
+            >
+              <View style={styles.heroContent}>
+                <View>
+                  <Text style={styles.heroTitle}>Control Center</Text>
+                  <Text style={styles.heroSub}>
+                    Manage your {user?.role || 'student'} activities & requests
+                  </Text>
                 </View>
-
-                <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: theme.mode === 'light' ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.15)' }]}>
-                  <Text style={[styles.redBadgeText, { color: theme.primary }]}>Mode: {theme.mode === 'light' ? 'Light Theme' : 'Dark Mode'}</Text>
+                <View style={styles.heroAction}>
+                  <Text style={styles.heroActionText}>OPEN DASHBOARD →</Text>
                 </View>
               </View>
-
-              <AppButton
-                title="OPEN MY DASHBOARD →"
-                onPress={openDashboard}
-                style={{ width: '100%', marginTop: 8 }}
+              <Image
+                source={{ uri: 'https://cdn-icons-png.flaticon.com/512/3534/3534060.png' }}
+                style={styles.heroImage}
               />
-            </GlassCard>
+            </LinearGradient>
+          </Animated.View>
+        </TouchableOpacity>
 
-            {/* Overview Stats Row */}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Dashboard Overview</Text>
-            <View style={styles.statsRowContainer}>
-              <StatBox icon="📚" value="1.2k+" label="Total Books" />
-              <StatBox icon="🏛️" value="12" label="Libraries" />
-              <StatBox icon="🏪" value="18" label="Local Shops" />
-              <StatBox icon="🔁" value="140+" label="Student Swaps" />
-            </View>
-
-            {/* Quick Feature Highlights */}
-            <View style={styles.quickHighlightsRow}>
-              <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.navigate('Search')}>
-                <GlassCard style={styles.highlightCard}>
-                  <Text style={styles.highlightIcon}>⚡</Text>
-                  <Text style={[styles.highlightTitle, { color: theme.text }]}>Instant Search</Text>
-                  <Text style={[styles.highlightSub, { color: theme.muted }]}>Browse catalog across 3 sources</Text>
-                </GlassCard>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={{ flex: 1, marginLeft: 10 }} onPress={() => navigation.navigate('SellBook')}>
-                <GlassCard style={styles.highlightCard}>
-                  <Text style={styles.highlightIcon}>✨</Text>
-                  <Text style={[styles.highlightTitle, { color: theme.text }]}>Sell & Earn</Text>
-                  <Text style={[styles.highlightSub, { color: theme.muted }]}>List unused textbooks in seconds</Text>
-                </GlassCard>
-              </TouchableOpacity>
-            </View>
-
+        {/* Bento Grid */}
+        <SectionHeader title="Explore Platform" />
+        <View style={styles.bentoGrid}>
+          <View style={styles.bentoRow}>
+            <BentoCard
+              size="medium"
+              title="Smart Search"
+              subtitle="Library, Shop & Peers"
+              icon="🔎"
+              colors={['#3b82f6', '#2563eb']}
+              onPress={() => navigation.navigate('Search')}
+            />
+            <BentoCard
+              size="small"
+              title="Swap"
+              subtitle="Book Exchange"
+              icon="🔁"
+              colors={['#f97316', '#ea580c']}
+              onPress={() => navigation.navigate('Exchange')}
+            />
+          </View>
+          <View style={styles.bentoRow}>
+            <BentoCard
+              size="small"
+              title="Donate"
+              subtitle="Give & Receive"
+              icon="🎁"
+              colors={['#ec4899', '#db2777']}
+              onPress={() => navigation.navigate('Donate')}
+            />
+            <BentoCard
+              size="medium"
+              title="Marketplace"
+              subtitle="Buy & Sell Used Books"
+              icon="🛒"
+              colors={['#10b981', '#059669']}
+              onPress={() => navigation.navigate('Market')}
+            />
           </View>
         </View>
+
+        {/* Statistics Section with Animated Counters */}
+        {!['library', 'shop'].includes(user?.role) && (
+          <>
+            <SectionHeader
+              title="Live Platform Stats"
+              onSeeAll={() => navigation.navigate('ShopsDirectory')}
+            />
+            {loadingStats ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </ScrollView>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
+                <GlassCard style={styles.statCard}>
+                  <Text style={styles.statEmoji}>📚</Text>
+                  <AnimatedNumber
+                    value={stats?.totalBooks || 0}
+                    style={[styles.statValue, { color: theme.primary }]}
+                  />
+                  <Text style={[styles.statLabel, { color: theme.muted }]}>TITLES</Text>
+                </GlassCard>
+
+                <GlassCard style={styles.statCard}>
+                  <Text style={styles.statEmoji}>🏛️</Text>
+                  <AnimatedNumber
+                    value={stats?.totalLibraries || 0}
+                    style={[styles.statValue, { color: theme.primary }]}
+                  />
+                  <Text style={[styles.statLabel, { color: theme.muted }]}>LIBRARIES</Text>
+                </GlassCard>
+
+                <GlassCard style={styles.statCard}>
+                  <Text style={styles.statEmoji}>🏪</Text>
+                  <AnimatedNumber
+                    value={stats?.totalShops || 0}
+                    style={[styles.statValue, { color: theme.primary }]}
+                  />
+                  <Text style={[styles.statLabel, { color: theme.muted }]}>STORES</Text>
+                </GlassCard>
+
+                <GlassCard style={styles.statCard}>
+                  <Text style={styles.statEmoji}>🔁</Text>
+                  <AnimatedNumber
+                    value={stats?.totalExchanges || 0}
+                    style={[styles.statValue, { color: theme.primary }]}
+                  />
+                  <Text style={[styles.statLabel, { color: theme.muted }]}>SWAPS</Text>
+                </GlassCard>
+              </ScrollView>
+            )}
+          </>
+        )}
+
+        {/* Quick Footer Action */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={[styles.postButton, { backgroundColor: theme.primary }]}
+          onPress={() => navigation.navigate('SellBook')}
+        >
+          <LinearGradient colors={[theme.primary, theme.accent]} style={styles.postGradient}>
+            <Text style={styles.postText}>+ LIST YOUR BOOK FOR SALE</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
       </AppScrollView>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    paddingBottom: 80,
-  },
-  dashboardWrapper: {
-    gap: 16,
-  },
-  sidebarColumn: {
-    width: '100%',
-  },
-  sidebarDesktop: {
-    width: 320,
-  },
-  mainColumn: {
-    flex: 1,
-  },
-  mainDesktop: {
-    flex: 1,
-  },
-  sidebarContainer: {
-    padding: 16,
-  },
-  sidebarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.15)',
-  },
-  sidebarBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  sidebarBadgeIcon: {
-    fontSize: 20,
-  },
-  sidebarTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.2,
-  },
-  sidebarSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  navList: {
-    gap: 8,
-  },
-  navCard: {
-    padding: 12,
-    marginVertical: 3,
-  },
-  navCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  navCardIcon: {
-    fontSize: 20,
-  },
-  navCardTextContainer: {
-    flex: 1,
-  },
-  navCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  navCardSubtext: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  arrowIcon: {
-    fontSize: 18,
-    fontWeight: '900',
-    marginLeft: 6,
-  },
-  hero: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  heroBadgeCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#6366f1',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  heroIcon: {
-    fontSize: 34,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    textAlign: 'center',
-    letterSpacing: -0.3,
-  },
-  heroText: {
-    textAlign: 'center',
-    lineHeight: 20,
-    fontSize: 13,
-    marginVertical: 10,
-    paddingHorizontal: 10,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 14,
-    justifyContent: 'center',
-    gap: 8,
-  },
-  redBadge: {
-    borderWidth: 1.5,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 18,
-  },
-  redBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'capitalize',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 12,
-    marginTop: 4,
-    letterSpacing: 0.2,
-  },
-  statsRowContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  statBox: {
-    flex: 1,
-    minWidth: 120,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  statIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  quickHighlightsRow: {
+  container: { padding: 20, paddingBottom: 110 },
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 6,
   },
-  highlightCard: {
-    padding: 14,
+  welcome: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
+  name: { fontSize: 24, fontWeight: '900', marginTop: 2, letterSpacing: -0.5 },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  highlightIcon: {
-    fontSize: 24,
-    marginBottom: 6,
+  avatarText: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    height: 54,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    marginBottom: 20,
   },
-  highlightTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+  searchPlaceholder: { fontSize: 14, fontWeight: '600' },
+  heroCard: {
+    borderRadius: 28,
+    padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
+    marginBottom: 20,
+    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
   },
-  highlightSub: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
+  heroContent: { zIndex: 2 },
+  heroTitle: { color: '#fff', fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
+  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4, fontWeight: '600' },
+  heroAction: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 16,
+    alignSelf: 'flex-start',
   },
+  heroActionText: { color: '#000', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  heroImage: { position: 'absolute', right: -20, bottom: -10, width: 140, height: 140, opacity: 0.25 },
+  bentoGrid: { marginTop: 2 },
+  bentoRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  statsScroll: { marginHorizontal: -20, paddingHorizontal: 20, marginBottom: 20 },
+  statCard: {
+    width: 110,
+    height: 115,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderRadius: 20,
+  },
+  statEmoji: { fontSize: 24, marginBottom: 6 },
+  statValue: { fontSize: 20, fontWeight: '900' },
+  statLabel: { fontSize: 9, fontWeight: '800', marginTop: 2, letterSpacing: 0.5 },
+  postButton: { borderRadius: 20, marginTop: 10, overflow: 'hidden', elevation: 6 },
+  postGradient: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+  postText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
 });

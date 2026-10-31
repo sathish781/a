@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import NeumorphicCard from './NeumorphicCard';
+import AnimatedNumber from './AnimatedNumber';
 import { useThemeMode } from '../context/ThemeContext';
 
 export default function NeumorphicStatCard({ label, value, icon }) {
@@ -9,7 +10,7 @@ export default function NeumorphicStatCard({ label, value, icon }) {
   return (
     <NeumorphicCard style={styles.card}>
       <Text style={styles.icon}>{icon}</Text>
-      <Text style={[styles.value, { color: theme.white }]}>{value}</Text>
+      <AnimatedNumber value={value} style={[styles.value, { color: theme.white }]} />
       <Text style={[styles.label, { color: theme.muted }]}>{label}</Text>
     </NeumorphicCard>
   );
@@ -33,5 +34,6 @@ const styles = StyleSheet.create({
   label: {
     marginTop: 4,
     fontWeight: '700',
+    fontSize: 12,
   },
 });

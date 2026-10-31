@@ -1,129 +1,69 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true
-    },
-
-    password: {
-      type: String,
-      required: true
-    },
-
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true },
+    password: { type: String, required: true },
     role: {
       type: String,
       enum: ['student', 'shop', 'library', 'admin'],
       default: 'student'
     },
+    phone: { type: String, default: '' },
 
-    phone: {
-      type: String,
-      default: ''
-    },
-
-    // Student fields
-    college: {
-      type: String,
-      default: ''
-    },
-
-    department: {
-      type: String,
-      default: ''
-    },
-
-    isCollegeStudent: {
-      type: Boolean,
-      default: true
-    },
-
-    year: {
-      type: String,
-      default: ''
-    },
-
-    // Shop fields
-    shopName: {
-      type: String,
-      default: ''
-    },
-
-    shopAddress: {
-      type: String,
-      default: ''
-    },
-
-    businessDescription: {
-      type: String,
-      default: ''
-    },
-
-    // Library fields
-    libraryName: {
-      type: String,
-      default: ''
-    },
-
-    libraryAddress: {
-      type: String,
-      default: ''
-    },
-
-    profileImage: {
-      type: String,
-      default: ''
-    },
-
-    status: {
-      type: String,
-      enum: ['active', 'blocked', 'deleted'],
-      default: 'active'
-    },
-
+    // Status and Verification
+    status: { type: String, enum: ['active', 'blocked'], default: 'active' },
     approvalStatus: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],
-      default: 'approved'
+      default: 'approved' // Students are auto-approved, Shops/Libraries set to pending via controller
     },
 
-    location: {
-      type: String,
-      default: 'New York, NY'
+    // Location (GeoJSON)
+    locationCoords: {
+      type: { type: String, default: 'Point' },
+      coordinates: { type: [Number], default: [0, 0] } // [longitude, latitude]
     },
+    locationName: { type: String, default: '' },
 
-    latitude: {
-      type: Number,
-      default: 40.7128
-    },
+    // Role-specific Metadata
+    college: { type: String, default: '' },
+    department: { type: String, default: '' },
+    shopName: { type: String, default: '' },
+    shopAddress: { type: String, default: '' },
+    libraryName: { type: String, default: '' },
+    libraryAddress: { type: String, default: '' },
+    profileImage: { type: String, default: '' },
 
-    longitude: {
-      type: Number,
-      default: -74.0060
-    },
+    recoveryHint: { type: String, default: '' },
 
-    badgeCount: {
-      type: Number,
-      default: 0
-    }
+    badgeCount: { type: Number, default: 0 },
+
+    resetPasswordToken: String,
+    resetPasswordExpire: Date
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
+userSchema.index({ locationCoords: '2dsphere' });
 
-userSchema.index({ role: 1 });
-userSchema.index({ location: 'text', college: 'text', shopName: 'text', libraryName: 'text' });
+// Generate and hash password reset token
+userSchema.methods.getResetPasswordToken = function() {
+  // Generate token
+  const resetToken = crypto.randomBytes(20).toString('hex');
+
+  // Hash token and set to resetPasswordToken field
+  this.resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Set expire (10 minutes)
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
+};
 
 module.exports = mongoose.model('User', userSchema);

@@ -1,62 +1,48 @@
 export const darkTheme = {
   mode: 'dark',
-
-  primary: '#6366f1',       // Indigo-500 (premium deep violet-blue)
-  primaryDark: '#4f46e5',   // Indigo-600
-  accent: '#8b5cf6',        // Violet-500
-  accentTwo: '#7c3aed',     // Violet-600
-
-  backgroundOne: '#050508', // Deep Pitch Black
-  backgroundTwo: '#0a0a10', // Midnight Dark Obsidian
-  backgroundThree: '#0d0b18', // Deep Indigo Night
-
+  primary: '#f97316',
+  primaryDark: '#ea580c',
+  accent: '#f59e0b',
+  accentTwo: '#fbbf24',
+  backgroundOne: '#1c1917',
+  backgroundTwo: '#292524',
+  backgroundThree: '#44403c',
   white: '#ffffff',
-  text: '#f8fafc',
-  darkText: '#0f172a',
-  muted: '#94a3b8', // Slate muted text
-
-  glass: 'rgba(16, 17, 30, 0.82)',
-  glassStrong: 'rgba(24, 25, 45, 0.92)',
-  glassBorder: 'rgba(99, 102, 241, 0.25)',
-  glassGlow: 'rgba(99, 102, 241, 0.38)',
-
-  cardShadow: '#6366f1',
-
+  text: '#fafaf9',
+  darkText: '#1c1917',
+  muted: '#a8a29e',
+  glass: 'rgba(28, 25, 23, 0.82)',
+  glassStrong: 'rgba(41, 37, 36, 0.92)',
+  glassBorder: 'rgba(249, 115, 22, 0.25)',
+  glassGlow: 'rgba(249, 115, 22, 0.38)',
+  cardShadow: '#f97316',
   danger: '#ef4444',
   success: '#10b981',
   warning: '#f59e0b',
-
-  tabBg: 'rgba(8, 8, 18, 0.95)',
+  tabBg: 'rgba(28, 25, 23, 0.95)',
 };
 
 export const lightTheme = {
   mode: 'light',
-
-  primary: '#6366f1',       // Indigo-500 — rich, premium accent
-  primaryDark: '#4f46e5',   // Indigo-600
-  accent: '#8b5cf6',        // Violet-500
-  accentTwo: '#7c3aed',     // Violet-600
-
-  backgroundOne: '#ffffff', // Crisp pure white background
-  backgroundTwo: '#f8fafc', // Soft slate white section bg
-  backgroundThree: '#f1f5f9', // Slate light neutral bg
-
+  primary: '#f97316',
+  primaryDark: '#ea580c',
+  accent: '#f59e0b',
+  accentTwo: '#fbbf24',
+  backgroundOne: '#fffaf5',
+  backgroundTwo: '#fff7ed',
+  backgroundThree: '#ffedd5',
   white: '#ffffff',
-  text: '#0f172a', // High-contrast dark text
-  darkText: '#0f172a',
-  muted: '#64748b', // Slate muted text
-
+  text: '#1c1917',
+  darkText: '#1c1917',
+  muted: '#78716c',
   glass: '#ffffff',
-  glassStrong: '#f8fafc',
-  glassBorder: 'rgba(226, 232, 240, 0.9)',
-  glassGlow: 'rgba(99, 102, 241, 0.15)',
-
-  cardShadow: 'rgba(99, 102, 241, 0.10)',
-
+  glassStrong: '#fff7ed',
+  glassBorder: 'rgba(231, 229, 228, 0.9)',
+  glassGlow: 'rgba(249, 115, 22, 0.15)',
+  cardShadow: 'rgba(249, 115, 22, 0.10)',
   danger: '#ef4444',
   success: '#10b981',
   warning: '#f59e0b',
-
   tabBg: '#ffffff',
 };
 

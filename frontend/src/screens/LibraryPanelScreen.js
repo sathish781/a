@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text, StyleSheet, ScrollView, Alert, View } from 'react-native';
 
 import GlassScreen from '../components/GlassScreen';
 import GlassCard from '../components/GlassCard';
 import AppTextInput from '../components/AppTextInput';
 import AppButton from '../components/AppButton';
 import api from '../api/client';
-import { colors } from '../utils/theme';
+import { useThemeMode } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
-export default function LibraryPanelScreen() {
+export default function LibraryPanelScreen({ navigation }) {
+  const { theme } = useThemeMode();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [libraries, setLibraries] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const [libraryForm, setLibraryForm] = useState({
     name: '',
@@ -22,50 +28,35 @@ export default function LibraryPanelScreen() {
     title: '',
     author: '',
     isbn: '',
-    category: '',
-    subject: '',
-    course: '',
-    semester: '',
-    examType: 'Academic',
+    category: 'Academic',
+    description: '',
+    condition: 'Good',
     totalCopies: '1',
     availableCopies: '1',
     shelfNumber: ''
   });
 
-  function setLibraryValue(key, value) {
-    setLibraryForm({
-      ...libraryForm,
-      [key]: value
-    });
-  }
-
-  function setBookValue(key, value) {
-    setBookForm({
-      ...bookForm,
-      [key]: value
-    });
-  }
-
   async function loadLibraries() {
     try {
+      setLoading(true);
       const res = await api.get('/libraries');
       setLibraries(res.data);
     } catch (error) {
       Alert.alert('Error', 'Libraries loading failed');
+    } finally {
+      setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (isAdmin) loadLibraries();
+  }, [isAdmin]);
 
   async function createLibrary() {
     try {
       await api.post('/libraries', libraryForm);
-
       Alert.alert('Success', 'Library created');
-      setLibraryForm({
-        name: '',
-        address: '',
-        contact: ''
-      });
-
+      setLibraryForm({ name: '', address: '', contact: '' });
       loadLibraries();
     } catch (error) {
       Alert.alert('Error', 'Library creation failed');
@@ -74,6 +65,8 @@ export default function LibraryPanelScreen() {
 
   async function addLibraryBook() {
     try {
+      if (!bookForm.title.trim()) return Alert.alert('Error', 'Title is required');
+
       await api.post('/library-books', {
         ...bookForm,
         totalCopies: Number(bookForm.totalCopies),
@@ -81,165 +74,69 @@ export default function LibraryPanelScreen() {
       });
 
       Alert.alert('Success', 'Library book added');
+      setBookForm({ ...bookForm, title: '', author: '', isbn: '' });
+      navigation.goBack();
     } catch (error) {
       Alert.alert('Error', 'Failed to add library book');
     }
   }
 
-  useEffect(() => {
-    loadLibraries();
-  }, []);
-
   return (
     <GlassScreen>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Library Panel</Text>
-        <Text style={styles.subtitle}>
-          Add library and manage book availability.
-        </Text>
+        <Text style={[styles.title, { color: theme.text }]}>Add New Book</Text>
+        <Text style={[styles.subtitle, { color: theme.muted }]}>Register new arrivals into the library catalog.</Text>
 
         <GlassCard>
-          <Text style={styles.sectionTitle}>Create Library</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Book Information</Text>
+          {isAdmin && (
+            <AppTextInput
+              placeholder="Library ID (Required for Admin)"
+              value={bookForm.libraryId}
+              onChangeText={(v) => setBookForm({...bookForm, libraryId: v})}
+            />
+          )}
+          <AppTextInput placeholder="Book Title *" value={bookForm.title} onChangeText={(v) => setBookForm({...bookForm, title: v})} />
+          <AppTextInput placeholder="Author" value={bookForm.author} onChangeText={(v) => setBookForm({...bookForm, author: v})} />
+          <AppTextInput placeholder="ISBN" value={bookForm.isbn} onChangeText={(v) => setBookForm({...bookForm, isbn: v})} />
+          <AppTextInput placeholder="Shelf Number" value={bookForm.shelfNumber} onChangeText={(v) => setBookForm({...bookForm, shelfNumber: v})} />
 
-          <AppTextInput
-            placeholder="Library Name"
-            value={libraryForm.name}
-            onChangeText={(v) => setLibraryValue('name', v)}
-          />
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={[styles.label, { color: theme.muted }]}>Total Copies</Text>
+              <AppTextInput placeholder="Total" value={bookForm.totalCopies} keyboardType="number-pad" onChangeText={(v) => setBookForm({...bookForm, totalCopies: v})} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { color: theme.muted }]}>Available</Text>
+              <AppTextInput placeholder="Available" value={bookForm.availableCopies} keyboardType="number-pad" onChangeText={(v) => setBookForm({...bookForm, availableCopies: v})} />
+            </View>
+          </View>
 
-          <AppTextInput
-            placeholder="Address"
-            value={libraryForm.address}
-            onChangeText={(v) => setLibraryValue('address', v)}
-          />
-
-          <AppTextInput
-            placeholder="Contact"
-            value={libraryForm.contact}
-            onChangeText={(v) => setLibraryValue('contact', v)}
-          />
-
-          <AppButton title="Create Library" onPress={createLibrary} />
+          <AppButton title="ADD TO CATALOG" onPress={addLibraryBook} style={{ marginTop: 10 }} />
+          <AppButton title="CANCEL" variant="dark" onPress={() => navigation.goBack()} style={{ marginTop: 8 }} />
         </GlassCard>
 
-        <GlassCard>
-          <Text style={styles.sectionTitle}>Existing Library IDs</Text>
-
-          {libraries.map((item) => (
-            <Text key={item._id} style={styles.idText}>
-              {item._id} - {item.name}
-            </Text>
-          ))}
-        </GlassCard>
-
-        <GlassCard>
-          <Text style={styles.sectionTitle}>Add Library Book</Text>
-
-          <AppTextInput
-            placeholder="Library ID"
-            value={bookForm.libraryId}
-            onChangeText={(v) => setBookValue('libraryId', v)}
-          />
-
-          <AppTextInput
-            placeholder="Book Title"
-            value={bookForm.title}
-            onChangeText={(v) => setBookValue('title', v)}
-          />
-
-          <AppTextInput
-            placeholder="Author"
-            value={bookForm.author}
-            onChangeText={(v) => setBookValue('author', v)}
-          />
-
-          <AppTextInput
-            placeholder="ISBN"
-            value={bookForm.isbn}
-            onChangeText={(v) => setBookValue('isbn', v)}
-          />
-
-          <AppTextInput
-            placeholder="Category"
-            value={bookForm.category}
-            onChangeText={(v) => setBookValue('category', v)}
-          />
-
-          <AppTextInput
-            placeholder="Subject"
-            value={bookForm.subject}
-            onChangeText={(v) => setBookValue('subject', v)}
-          />
-
-          <AppTextInput
-            placeholder="Course"
-            value={bookForm.course}
-            onChangeText={(v) => setBookValue('course', v)}
-          />
-
-          <AppTextInput
-            placeholder="Semester"
-            value={bookForm.semester}
-            onChangeText={(v) => setBookValue('semester', v)}
-          />
-
-          <AppTextInput
-            placeholder="Exam Type"
-            value={bookForm.examType}
-            onChangeText={(v) => setBookValue('examType', v)}
-          />
-
-          <AppTextInput
-            placeholder="Total Copies"
-            value={bookForm.totalCopies}
-            keyboardType="number-pad"
-            onChangeText={(v) => setBookValue('totalCopies', v)}
-          />
-
-          <AppTextInput
-            placeholder="Available Copies"
-            value={bookForm.availableCopies}
-            keyboardType="number-pad"
-            onChangeText={(v) => setBookValue('availableCopies', v)}
-          />
-
-          <AppTextInput
-            placeholder="Shelf Number"
-            value={bookForm.shelfNumber}
-            onChangeText={(v) => setBookValue('shelfNumber', v)}
-          />
-
-          <AppButton title="Add Library Book" onPress={addLibraryBook} />
-        </GlassCard>
+        {isAdmin && (
+          <View style={{ marginTop: 30 }}>
+            <GlassCard>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>🛡️ Admin: Create Library</Text>
+              <AppTextInput placeholder="Library Name" value={libraryForm.name} onChangeText={(v) => setLibraryForm({...libraryForm, name: v})} />
+              <AppTextInput placeholder="Address" value={libraryForm.address} onChangeText={(v) => setLibraryForm({...libraryForm, address: v})} />
+              <AppTextInput placeholder="Contact" value={libraryForm.contact} onChangeText={(v) => setLibraryForm({...libraryForm, contact: v})} />
+              <AppButton title="Create Library Account" onPress={createLibrary} />
+            </GlassCard>
+          </View>
+        )}
       </ScrollView>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 18,
-    paddingBottom: 100
-  },
-  title: {
-    color: colors.white,
-    fontSize: 30,
-    fontWeight: '900'
-  },
-  subtitle: {
-    color: colors.muted,
-    marginTop: 6,
-    marginBottom: 14
-  },
-  sectionTitle: {
-    color: colors.white,
-    fontSize: 20,
-    fontWeight: '900',
-    marginBottom: 10
-  },
-  idText: {
-    color: colors.muted,
-    lineHeight: 22,
-    marginBottom: 6
-  }
+  container: { padding: 18, paddingBottom: 100 },
+  title: { fontSize: 28, fontWeight: '900' },
+  subtitle: { fontSize: 14, marginTop: 4, marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15 },
+  row: { flexDirection: 'row' },
+  label: { fontSize: 12, marginBottom: 4, fontWeight: '700' },
 });

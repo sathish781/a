@@ -1,10 +1,21 @@
+# Dependencies
 node_modules/
+
+# Environment variables
 .env
-backend/.env
-frontend/.env
+.env.*
+!.env.example
+
+# Expo
 .expo/
+
+# Build files
 dist/
 build/
-.DS_Store
+
+# IDE settings
+.idea/
+.vscode/
+
+# Logs
 npm-debug.log*
-package-lock.json

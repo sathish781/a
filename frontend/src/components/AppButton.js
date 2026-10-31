@@ -1,10 +1,12 @@
 import React, { useRef } from 'react';
-import { TouchableWithoutFeedback, Text, StyleSheet, Animated } from 'react-native';
+import { TouchableWithoutFeedback, Text, StyleSheet, Animated, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { radius } from '../utils/theme';
+import { useThemeMode } from '../context/ThemeContext';
 
 export default function AppButton({ title, onPress, variant = 'primary', style }) {
+  const { theme } = useThemeMode();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -25,16 +27,16 @@ export default function AppButton({ title, onPress, variant = 'primary', style }
 
   const gradientColors =
     variant === 'danger'
-      ? ['#fbb7b7ff', '#e5a2a2ff']
+      ? ['#ef4444', '#b91c1c']
       : variant === 'success'
         ? ['#10b981', '#047857']
         : variant === 'dark'
-          ? ['#1e293b', '#0f172a']
+          ? ['#1c1917', '#000000']
           : variant === 'gold'
             ? ['#f59e0b', '#b45309']
             : variant === 'purple'
               ? ['#a855f7', '#6b21a8']
-              : ['#b0b1e8ff', '#8fd0f6ff']; // Default Indigo Gradient
+              : [theme.primary, theme.primaryDark];
 
   return (
     <TouchableWithoutFeedback
@@ -47,7 +49,7 @@ export default function AppButton({ title, onPress, variant = 'primary', style }
           colors={gradientColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={styles.button}
+          style={[styles.button, { shadowColor: theme.primary }]}
         >
           <Text style={styles.text}>{title}</Text>
         </LinearGradient>
@@ -64,9 +66,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 6,
-    shadowColor: '#cdcedeff',
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },

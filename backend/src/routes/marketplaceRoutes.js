@@ -3,7 +3,11 @@ const {
   getMarketplaceListings,
   getMyListings,
   createMarketplaceListing,
-  buyBook,
+  createBuyRequest,
+  acceptBuyRequest,
+  rejectBuyRequest,
+  getMyPurchases,
+  getMySales,
   updateMarketplaceListing,
   deleteMarketplaceListing
 } = require('../controllers/marketplaceController');
@@ -15,8 +19,12 @@ const router = express.Router();
 
 router.get('/', getMarketplaceListings);
 router.get('/my-listings', protect, getMyListings);
+router.get('/my-purchases', protect, getMyPurchases);
+router.get('/my-sales', protect, getMySales);
 router.post('/', protect, createMarketplaceListing);
-router.post('/:id/buy', protect, buyBook);
+router.post('/:id/request', protect, createBuyRequest);
+router.patch('/orders/:id/accept', protect, acceptBuyRequest);
+router.patch('/orders/:id/reject', protect, rejectBuyRequest);
 router.put('/:id', protect, updateMarketplaceListing);
 router.delete('/:id', protect, deleteMarketplaceListing);
 

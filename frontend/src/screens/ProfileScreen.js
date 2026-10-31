@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
-import { Text, StyleSheet, View, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  Text,
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import GlassScreen from '../components/GlassScreen';
 import GlassCard from '../components/GlassCard';
 import AppTextInput from '../components/AppTextInput';
 import AppButton from '../components/AppButton';
-import AppScrollView from '../components/AppScrollView';
-import AppHeader from '../components/AppHeader';
+import SectionHeader from '../components/SectionHeader';
+import AnimatedModal from '../components/AnimatedModal';
+import { useToast } from '../context/ToastContext';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useThemeMode } from '../context/ThemeContext';
@@ -15,200 +23,216 @@ import { useThemeMode } from '../context/ThemeContext';
 export default function ProfileScreen() {
   const { user, updateLocalUser, logout } = useAuth();
   const { theme, themeMode, toggleTheme } = useThemeMode();
-  const isLight = theme.mode === 'light';
+  const { showToast } = useToast();
+
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const avatarScale = useRef(new Animated.Value(1)).current;
 
   const [form, setForm] = useState({
-    name: user?.name || user?.shopName || user?.libraryName || '',
+    name: user?.name || '',
     phone: user?.phone || '',
-    college: user?.college || user?.shopAddress || user?.libraryAddress || '',
+    college: user?.college || '',
     location: user?.location || '',
+    recoveryHint: user?.recoveryHint || '',
   });
 
   function setValue(key, value) {
-    setForm({
-      ...form,
-      [key]: value,
-    });
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function saveProfile() {
     try {
+      setSaving(true);
       const res = await api.put('/auth/profile', form);
       await updateLocalUser(res.data.user);
-      Alert.alert('Success', 'Profile updated successfully!');
+      showToast('Profile updated successfully! ✨', 'success');
     } catch (error) {
-      Alert.alert('Error', 'Profile update failed. Check backend server.');
+      showToast('Profile update failed.', 'error');
+    } finally {
+      setSaving(false);
     }
   }
 
-  const initial = (user?.name || user?.shopName || user?.libraryName || 'U').charAt(0).toUpperCase();
+  const handleAvatarPress = () => {
+    Animated.sequence([
+      Animated.timing(avatarScale, { toValue: 0.88, duration: 100, useNativeDriver: true }),
+      Animated.spring(avatarScale, { toValue: 1, friction: 5, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const initial = user?.name?.charAt(0).toUpperCase() || 'U';
 
   return (
     <GlassScreen>
-      <AppScrollView contentContainerStyle={styles.container}>
-        <AppHeader
-          icon="👤"
-          label="Account Settings"
-          title="My Profile"
-          subtitle="Manage your profile details, badges, and theme preferences."
-        />
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Header Section */}
+        <View style={styles.header}>
+          <TouchableOpacity activeOpacity={1} onPress={handleAvatarPress}>
+            <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
+              <LinearGradient colors={[theme.primary, theme.accent]} style={styles.avatarCircle}>
+                <Text style={styles.initialText}>{initial}</Text>
+              </LinearGradient>
+            </Animated.View>
+          </TouchableOpacity>
 
-        {/* Hero Card */}
-        <GlassCard style={styles.profileCard}>
-          <View style={styles.avatarRingOuter}>
-            <LinearGradient
-              colors={isLight ? [theme.primary, theme.accent] : ['#afb0e6ff', '#8b5cf6', '#9995dcff']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarGradientRing}
+          <Text style={[styles.userName, { color: theme.text }]}>{user?.name}</Text>
+          <Text style={[styles.userEmail, { color: theme.muted }]}>{user?.email}</Text>
+          <View style={[styles.roleBadge, { backgroundColor: theme.primary + '18' }]}>
+            <Text style={[styles.roleText, { color: theme.primary }]}>
+              {user?.role?.toUpperCase() || 'STUDENT'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Appearance Section */}
+        <SectionHeader title="Appearance & Preferences" />
+        <GlassCard style={styles.settingsCard}>
+          <View style={styles.settingsRow}>
+            <View>
+              <Text style={[styles.settingTitle, { color: theme.text }]}>
+                {themeMode === 'light' ? 'Light Mode' : 'Dark Mode'}
+              </Text>
+              <Text style={[styles.settingSub, { color: theme.muted }]}>
+                Toggle app visual color theme
+              </Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.toggleBtn, { backgroundColor: theme.primary }]}
+              onPress={toggleTheme}
             >
-              <View style={[styles.avatarInner, isLight && { backgroundColor: '#ffffff' }]}>
-                <Text style={[styles.avatarInitial, isLight && { color: theme.primary }]}>{initial}</Text>
-              </View>
-            </LinearGradient>
-          </View>
-
-          <Text style={[styles.name, { color: theme.text }]}>{user?.name || user?.shopName || user?.libraryName || 'User'}</Text>
-          <Text style={[styles.email, { color: theme.muted }]}>{user?.email || 'user@university.edu'}</Text>
-
-          <View style={styles.badgeRow}>
-            <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: isLight ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.15)' }]}>
-              <Text style={[styles.redBadgeText, { color: theme.primary }]}>Role: {user?.role || 'student'}</Text>
-            </View>
-
-            <View style={[styles.redBadge, { borderColor: theme.primary, backgroundColor: isLight ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.15)' }]}>
-              <Text style={[styles.redBadgeText, { color: theme.primary }]}>🎁 Badges: {user?.badgeCount || 0}</Text>
-            </View>
+              <Text style={styles.toggleIcon}>{themeMode === 'light' ? '🌙' : '☀️'}</Text>
+            </TouchableOpacity>
           </View>
         </GlassCard>
 
-        {/* Theme Settings Card */}
+        {/* Edit Profile Form */}
+        <SectionHeader title="Edit Profile Details" />
         <GlassCard style={styles.formCard}>
-          <Text style={[styles.sectionHeader, { color: theme.text }]}>App Appearance</Text>
-          <Text style={[styles.helpText, { color: theme.muted }]}>Current Theme Mode: {themeMode === 'light' ? 'Pure White Light' : 'Obsidian Dark'}</Text>
-          <AppButton
-            title={themeMode === 'light' ? "🌙 SWITCH TO DARK MODE" : "☀️ SWITCH TO WHITE LIGHT MODE"}
-            onPress={toggleTheme}
-            variant="dark"
-            style={{ marginTop: 8 }}
-          />
-        </GlassCard>
-
-        {/* Form Details Card */}
-        <GlassCard style={styles.formCard}>
-          <Text style={[styles.sectionHeader, { color: theme.text }]}>Edit Account Details</Text>
-
           <AppTextInput
-            placeholder="Full Name / Entity Name"
+            label="Full Name"
             value={form.name}
             onChangeText={(v) => setValue('name', v)}
           />
-
           <AppTextInput
-            placeholder="Phone Number"
+            label="Phone Number"
             value={form.phone}
-            keyboardType="phone-pad"
             onChangeText={(v) => setValue('phone', v)}
           />
-
           <AppTextInput
-            placeholder="College / Shop / Library Name"
+            label="Institution / College"
             value={form.college}
             onChangeText={(v) => setValue('college', v)}
           />
-
           <AppTextInput
-            placeholder="Location (City / Campus)"
+            label="Location"
             value={form.location}
             onChangeText={(v) => setValue('location', v)}
           />
+          <AppTextInput
+            label="Security Hint"
+            value={form.recoveryHint}
+            onChangeText={(v) => setValue('recoveryHint', v)}
+          />
 
-          <AppButton title="SAVE PROFILE" onPress={saveProfile} style={{ marginTop: 10 }} />
-          <AppButton title="LOGOUT ACCOUNT" variant="danger" onPress={logout} style={{ marginTop: 8 }} />
+          <AppButton
+            title={saving ? 'SAVING...' : 'SAVE CHANGES'}
+            onPress={saveProfile}
+            loading={saving}
+            style={{ marginTop: 15 }}
+          />
         </GlassCard>
-      </AppScrollView>
+
+        {/* Logout Trigger */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setShowLogoutModal(true)}
+          style={styles.logoutBtn}
+        >
+          <Text style={[styles.logoutText, { color: theme.danger }]}>LOGOUT SESSION</Text>
+        </TouchableOpacity>
+
+        {/* Logout Confirmation Modal */}
+        <AnimatedModal visible={showLogoutModal} onClose={() => setShowLogoutModal(false)}>
+          <Text style={[styles.modalEmoji]}>👋</Text>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Log Out of BookConnect?</Text>
+          <Text style={[styles.modalSub, { color: theme.muted }]}>
+            Are you sure you want to end your active session on this device?
+          </Text>
+
+          <View style={styles.modalBtnRow}>
+            <TouchableOpacity
+              style={[styles.modalCancelBtn, { borderColor: theme.glassBorder }]}
+              onPress={() => setShowLogoutModal(false)}
+            >
+              <Text style={[styles.modalCancelText, { color: theme.text }]}>CANCEL</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalLogoutBtn, { backgroundColor: theme.danger }]}
+              onPress={() => {
+                setShowLogoutModal(false);
+                logout();
+              }}
+            >
+              <Text style={styles.modalLogoutText}>LOGOUT</Text>
+            </TouchableOpacity>
+          </View>
+        </AnimatedModal>
+      </ScrollView>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 18,
-    paddingBottom: 110,
-  },
-  profileCard: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  avatarRingOuter: {
-    marginBottom: 14,
-    shadowColor: '#dc2626',
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  avatarGradientRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    padding: 3,
+  container: { padding: 22, paddingBottom: 110 },
+  header: { alignItems: 'center', marginBottom: 25 },
+  avatarCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
   },
-  avatarInner: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 45,
-    backgroundColor: '#090a14',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: '#6366f1',
-    letterSpacing: 0.5,
-  },
-  name: {
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 16,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  redBadge: {
+  initialText: { fontSize: 36, fontWeight: '900', color: '#fff' },
+  userName: { fontSize: 22, fontWeight: '900', marginTop: 14, letterSpacing: -0.4 },
+  userEmail: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+  roleBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, marginTop: 8 },
+  roleText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  settingsCard: { padding: 18, borderRadius: 22 },
+  settingsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  settingTitle: { fontSize: 15, fontWeight: '800' },
+  settingSub: { fontSize: 12, marginTop: 2, fontWeight: '500' },
+  toggleBtn: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  toggleIcon: { fontSize: 18 },
+  formCard: { padding: 18, borderRadius: 22 },
+  logoutBtn: { marginTop: 28, alignItems: 'center', paddingVertical: 12 },
+  logoutText: { fontSize: 13, fontWeight: '900', letterSpacing: 1 },
+  modalEmoji: { fontSize: 44, textAlign: 'center', marginBottom: 10 },
+  modalTitle: { fontSize: 20, fontWeight: '900', textAlign: 'center' },
+  modalSub: { fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18, fontWeight: '500' },
+  modalBtnRow: { flexDirection: 'row', gap: 12, marginTop: 22 },
+  modalCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
     borderWidth: 1.5,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  redBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'capitalize',
+  modalCancelText: { fontSize: 13, fontWeight: '800' },
+  modalLogoutBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  formCard: {
-    padding: 20,
-    marginVertical: 8,
-  },
-  sectionHeader: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 10,
-    letterSpacing: 0.4,
-  },
-  helpText: {
-    fontSize: 13,
-    marginBottom: 6,
-  },
+  modalLogoutText: { color: '#ffffff', fontSize: 13, fontWeight: '900' },
 });

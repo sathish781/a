@@ -35,10 +35,17 @@ async function seedData() {
     console.log('✓ Categories updated');
 
     // 2. Seed Default Admin User
-    const adminEmail = 'admin@bookconnect.com';
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+      throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be configured');
+    }
+
     let admin = await User.findOne({ email: adminEmail });
+
     if (!admin) {
-      const hashedPassword = await bcrypt.hash('Admin@123456', 10);
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
       admin = await User.create({
         name: 'System Administrator',
         email: adminEmail,

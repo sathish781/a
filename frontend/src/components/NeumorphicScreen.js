@@ -16,7 +16,7 @@ export default function NeumorphicScreen({ children, style }) {
   const isLight = theme.mode === 'light';
 
   return (
-    <View style={[styles.screen, { backgroundColor: isLight ? '#ffffff' : '#050508' }]}>
+    <View style={[styles.screen, { backgroundColor: isLight ? '#fffaf5' : '#050508' }]}>
       <StatusBar
         barStyle={isLight ? "dark-content" : "light-content"}
         backgroundColor="transparent"
@@ -24,7 +24,7 @@ export default function NeumorphicScreen({ children, style }) {
       />
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardAvoid}
         >
           <ScrollView

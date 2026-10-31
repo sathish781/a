@@ -1,5 +1,5 @@
-import React from 'react';
-import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { ActivityIndicator, View, StyleSheet, Text, Animated } from 'react-native';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -19,27 +19,93 @@ import MarketplaceScreen from '../screens/MarketplaceScreen';
 import SellBookScreen from '../screens/SellBookScreen';
 import DonationScreen from '../screens/DonationScreen';
 import ExchangeScreen from '../screens/ExchangeScreen';
+import InitiateExchangeScreen from '../screens/InitiateExchangeScreen';
+import OfferExchangeBookScreen from '../screens/OfferExchangeBookScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ChatListScreen from '../screens/ChatListScreen';
+import ChatDetailScreen from '../screens/ChatDetailScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import LibraryPanelScreen from '../screens/LibraryPanelScreen';
 import ShopPanelScreen from '../screens/ShopPanelScreen';
 
+import LibraryInventoryScreen from '../screens/dashboards/LibraryInventoryScreen';
+import LibraryHistoryScreen from '../screens/dashboards/LibraryHistoryScreen';
 import StudentDashboardScreen from '../screens/dashboards/StudentDashboardScreen';
 import LibraryDashboardScreen from '../screens/dashboards/LibraryDashboardScreen';
 import ShopDashboardScreen from '../screens/dashboards/ShopDashboardScreen';
+import ShopInventoryScreen from '../screens/dashboards/ShopInventoryScreen';
+import ShopOrdersScreen from '../screens/dashboards/ShopOrdersScreen';
+import ShopSalesReportScreen from '../screens/dashboards/ShopSalesReportScreen';
 import AdminRoleDashboardScreen from '../screens/dashboards/AdminRoleDashboardScreen';
+import AdminBookCatalogScreen from '../screens/dashboards/AdminBookCatalogScreen';
+import AdminMarketplaceScreen from '../screens/dashboards/AdminMarketplaceScreen';
+import ManageLibraryRequestsScreen from '../screens/dashboards/ManageLibraryRequestsScreen';
+import ManageShopRequestsScreen from '../screens/dashboards/ManageShopRequestsScreen';
+import BorrowHistoryScreen from '../screens/dashboards/BorrowHistoryScreen';
+import PurchaseHistoryScreen from '../screens/dashboards/PurchaseHistoryScreen';
+import UserManagementScreen from '../screens/UserManagementScreen';
+import OrganizationApprovalScreen from '../screens/OrganizationApprovalScreen';
+import ShopRequestScreen from '../screens/ShopRequestScreen';
+import LibraryRequestScreen from '../screens/LibraryRequestScreen';
+import ShopsDirectoryScreen from '../screens/ShopsDirectoryScreen';
+import LibrariesDirectoryScreen from '../screens/LibrariesDirectoryScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-function TabIcon({ icon, focused }) {
+function AnimatedTabIcon({ icon, focused }) {
+  const { theme } = useThemeMode();
+  const scaleAnim = useRef(new Animated.Value(focused ? 1.18 : 1)).current;
+  const translateAnim = useRef(new Animated.Value(focused ? -3 : 0)).current;
+  const dotWidth = useRef(new Animated.Value(focused ? 16 : 0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: focused ? 1.2 : 1,
+        tension: 65,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateAnim, {
+        toValue: focused ? -3 : 0,
+        tension: 65,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+      Animated.spring(dotWidth, {
+        toValue: focused ? 16 : 0,
+        tension: 65,
+        friction: 6,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [focused]);
+
   return (
     <View style={tabStyles.iconContainer}>
-      <Text style={{ fontSize: focused ? 22 : 19, opacity: focused ? 1 : 0.7 }}>
+      <Animated.Text
+        style={[
+          tabStyles.iconText,
+          {
+            opacity: focused ? 1 : 0.65,
+            transform: [{ scale: scaleAnim }, { translateY: translateAnim }],
+          },
+        ]}
+      >
         {icon}
-      </Text>
-      {focused && <View style={tabStyles.activeDot} />}
+      </Animated.Text>
+      <Animated.View
+        style={[
+          tabStyles.activePill,
+          {
+            width: dotWidth,
+            backgroundColor: theme.primary,
+            shadowColor: theme.primary,
+          },
+        ]}
+      />
     </View>
   );
 }
@@ -49,15 +115,16 @@ const tabStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeDot: {
-    width: 4,
-    height: 4,
+  iconText: {
+    fontSize: 20,
+  },
+  activePill: {
+    height: 3.5,
     borderRadius: 2,
-    backgroundColor: '#6366f1',
-    marginTop: 3,
-    shadowColor: '#acd8f4ff',
-    shadowOpacity: 0.9,
+    marginTop: 4,
+    shadowOpacity: 0.8,
     shadowRadius: 6,
+    elevation: 3,
   },
 });
 
@@ -76,18 +143,18 @@ function MainTabs() {
           height: 68,
           paddingTop: 8,
           paddingBottom: 8,
-          elevation: 8,
+          elevation: 10,
           shadowColor: theme.cardShadow,
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.12,
+          shadowRadius: 10,
         },
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.muted,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '800',
-          letterSpacing: 0.4,
+          letterSpacing: 0.3,
         },
       }}
     >
@@ -95,7 +162,7 @@ function MainTabs() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="🏠" focused={focused} />,
+          tabBarIcon: ({ focused }) => <AnimatedTabIcon icon="🏠" focused={focused} />,
         }}
       />
 
@@ -103,7 +170,7 @@ function MainTabs() {
         name="Search"
         component={SearchScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="🔎" focused={focused} />,
+          tabBarIcon: ({ focused }) => <AnimatedTabIcon icon="🔎" focused={focused} />,
         }}
       />
 
@@ -111,7 +178,7 @@ function MainTabs() {
         name="Market"
         component={MarketplaceScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="🛒" focused={focused} />,
+          tabBarIcon: ({ focused }) => <AnimatedTabIcon icon="🛒" focused={focused} />,
         }}
       />
 
@@ -119,7 +186,15 @@ function MainTabs() {
         name="Donate"
         component={DonationScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="🎁" focused={focused} />,
+          tabBarIcon: ({ focused }) => <AnimatedTabIcon icon="🎁" focused={focused} />,
+        }}
+      />
+
+      <Tab.Screen
+        name="Messages"
+        component={ChatListScreen}
+        options={{
+          tabBarIcon: ({ focused }) => <AnimatedTabIcon icon="💬" focused={focused} />,
         }}
       />
 
@@ -127,7 +202,7 @@ function MainTabs() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <AnimatedTabIcon icon="👤" focused={focused} />,
         }}
       />
 
@@ -136,7 +211,7 @@ function MainTabs() {
           name="Admin"
           component={AdminDashboardScreen}
           options={{
-            tabBarIcon: ({ focused }) => <TabIcon icon="🛡️" focused={focused} />,
+            tabBarIcon: ({ focused }) => <AnimatedTabIcon icon="🛡️" focused={focused} />,
           }}
         />
       )}
@@ -165,6 +240,11 @@ export default function AppNavigator() {
         headerTintColor: theme.text,
         headerTitleStyle: {
           fontWeight: '900',
+        },
+        contentStyle: {
+          flex: 1,
+          height: '100%',
+          backgroundColor: theme.backgroundOne,
         },
       }}
     >
@@ -199,14 +279,34 @@ export default function AppNavigator() {
           <Stack.Screen name="StudentDashboard" component={StudentDashboardScreen} />
           <Stack.Screen name="LibraryDashboard" component={LibraryDashboardScreen} />
           <Stack.Screen name="ShopDashboard" component={ShopDashboardScreen} />
+          <Stack.Screen name="ShopInventory" component={ShopInventoryScreen} />
+          <Stack.Screen name="ShopOrders" component={ShopOrdersScreen} />
+          <Stack.Screen name="ShopSalesReport" component={ShopSalesReportScreen} />
           <Stack.Screen name="AdminRoleDashboard" component={AdminRoleDashboardScreen} />
+          <Stack.Screen name="AdminBookCatalog" component={AdminBookCatalogScreen} options={{ title: 'Book Catalog' }} />
+          <Stack.Screen name="AdminMarketplace" component={AdminMarketplaceScreen} options={{ title: 'Marketplace Mgt' }} />
+          <Stack.Screen name="ManageLibraryRequests" component={ManageLibraryRequestsScreen} />
+          <Stack.Screen name="ManageShopRequests" component={ManageShopRequestsScreen} />
+          <Stack.Screen name="BorrowHistory" component={BorrowHistoryScreen} />
+          <Stack.Screen name="PurchaseHistory" component={PurchaseHistoryScreen} />
+          <Stack.Screen name="UserManagement" component={UserManagementScreen} />
+          <Stack.Screen name="OrganizationApproval" component={OrganizationApprovalScreen} />
 
           <Stack.Screen name="BookDetails" component={BookDetailsScreen} />
           <Stack.Screen name="SellBook" component={SellBookScreen} />
           <Stack.Screen name="Exchange" component={ExchangeScreen} />
+          <Stack.Screen name="InitiateExchange" component={InitiateExchangeScreen} options={{ title: 'Swap Books' }} />
+          <Stack.Screen name="OfferExchangeBook" component={OfferExchangeBookScreen} options={{ title: 'Offer Book' }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          <Stack.Screen name="LibraryPanel" component={LibraryPanelScreen} />
+          <Stack.Screen name="LibraryPanel" component={LibraryPanelScreen} options={{ title: 'Add New Book' }} />
+          <Stack.Screen name="LibraryInventory" component={LibraryInventoryScreen} options={{ title: 'Catalog Manager' }} />
+          <Stack.Screen name="LibraryHistory" component={LibraryHistoryScreen} options={{ title: 'Borrow History' }} />
           <Stack.Screen name="ShopPanel" component={ShopPanelScreen} />
+          <Stack.Screen name="ShopsDirectory" component={ShopsDirectoryScreen} options={{ title: 'Local Book Shops' }} />
+          <Stack.Screen name="LibrariesDirectory" component={LibrariesDirectoryScreen} options={{ title: 'College Libraries' }} />
+          <Stack.Screen name="ShopRequest" component={ShopRequestScreen} options={{ title: 'Shop Request' }} />
+          <Stack.Screen name="LibraryRequest" component={LibraryRequestScreen} options={{ title: 'Library Request' }} />
+          <Stack.Screen name="ChatDetail" component={ChatDetailScreen} options={{ headerShown: false }} />
         </>
       )}
     </Stack.Navigator>

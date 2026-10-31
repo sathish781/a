@@ -2,6 +2,7 @@ const express = require('express');
 const {
   getLibraries,
   getLibraryById,
+  createLibrary,
   addLibraryBook,
   updateLibraryBook,
   deleteLibraryBook,
@@ -17,6 +18,7 @@ const { authorize } = require('../middleware/roleMiddleware');
 const router = express.Router();
 
 router.get('/', getLibraries);
+router.post('/', createLibrary); // Added route for creating library
 router.get('/my-catalog', protect, authorize('library', 'admin'), getMyCatalog);
 router.get('/borrow-history', protect, authorize('library', 'admin'), getBorrowHistory);
 router.get('/:id', getLibraryById);

@@ -6,7 +6,11 @@ const {
   approveDonation,
   rejectDonation,
   deleteDonation,
-  getAllDonations
+  getAllDonations,
+  requestDonation,
+  acceptDonationClaim,
+  rejectDonationClaim,
+  getMyClaims
 } = require('../controllers/donationController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -17,7 +21,11 @@ const router = express.Router();
 router.get('/', getDonations);
 router.get('/all', protect, authorize('admin'), getAllDonations);
 router.get('/my-donations', protect, getMyDonations);
+router.get('/my-claims', protect, getMyClaims);
 router.post('/', protect, createDonation);
+router.post('/request', protect, requestDonation);
+router.patch('/:id/accept-claim', protect, acceptDonationClaim);
+router.patch('/:id/reject-claim', protect, rejectDonationClaim);
 router.patch('/:id/approve', protect, authorize('admin'), approveDonation);
 router.patch('/:id/reject', protect, authorize('admin'), rejectDonation);
 router.delete('/:id', protect, authorize('admin'), deleteDonation);

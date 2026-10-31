@@ -10,16 +10,16 @@ import {
 const { width, height } = Dimensions.get('window');
 
 const CARDS = [
-  { emoji: '📚', label: 'BookConnect', gradient: ['#6366f1', '#8b5cf6'], rotation: '-4deg' },
-  { emoji: '🎓', label: 'Campus Exchange', gradient: ['#0ea5e9', '#38bdf8'], rotation: '3deg' },
-  { emoji: '🛒', label: 'Buy & Sell', gradient: ['#f97316', '#fb923c'], rotation: '-2deg' },
+  { emoji: '📚', label: 'BookConnect', gradient: ['#f97316', '#fb923c'], rotation: '-4deg' },
+  { emoji: '🎓', label: 'Campus Exchange', gradient: ['#f59e0b', '#fbbf24'], rotation: '3deg' },
+  { emoji: '🛒', label: 'Buy & Sell', gradient: ['#ea580c', '#f97316'], rotation: '-2deg' },
   { emoji: '🏛️', label: 'Library Access', gradient: ['#10b981', '#34d399'], rotation: '5deg' },
   { emoji: '🔍', label: 'Find Books', gradient: ['#ec4899', '#f472b6'], rotation: '-3deg' },
-  { emoji: '💬', label: 'Connect', gradient: ['#f59e0b', '#fbbf24'], rotation: '2deg' },
-  { emoji: '⭐', label: 'Reviews', gradient: ['#8b5cf6', '#a78bfa'], rotation: '-5deg' },
+  { emoji: '💬', label: 'Connect', gradient: ['#fbbf24', '#fcd34d'], rotation: '2deg' },
+  { emoji: '⭐', label: 'Reviews', gradient: ['#d97706', '#f59e0b'], rotation: '-5deg' },
   { emoji: '🔖', label: 'Bookmark', gradient: ['#06b6d4', '#22d3ee'], rotation: '4deg' },
   { emoji: '📖', label: 'Read More', gradient: ['#ef4444', '#f87171'], rotation: '-1deg' },
-  { emoji: '🎒', label: 'Student Hub', gradient: ['#3b82f6', '#60a5fa'], rotation: '3deg' },
+  { emoji: '🎒', label: 'Student Hub', gradient: ['#ea580c', '#f97316'], rotation: '3deg' },
   { emoji: '💡', label: 'Knowledge', gradient: ['#84cc16', '#a3e635'], rotation: '-4deg' },
   { emoji: '🤝', label: 'Share', gradient: ['#f43f5e', '#fb7185'], rotation: '2deg' },
 ];

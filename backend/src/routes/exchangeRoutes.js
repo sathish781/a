@@ -14,7 +14,7 @@ const { authorize } = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
-router.get('/', getExchanges);
+router.get('/', protect, getExchanges);
 router.get('/all', protect, authorize('admin'), getAllExchanges);
 router.get('/my-exchanges', protect, getMyExchanges);
 router.post('/list', protect, listBookForExchange);

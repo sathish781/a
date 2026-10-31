@@ -3,6 +3,7 @@ const Book = require('../models/Book');
 const Donation = require('../models/Donation');
 const Exchange = require('../models/Exchange');
 const Order = require('../models/Order');
+const LibraryRequest = require('../models/LibraryRequest');
 const Notification = require('../models/Notification');
 const asyncHandler = require('../utils/asyncHandler');
 const bcrypt = require('bcryptjs');
@@ -58,6 +59,40 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       newDonations: todayDonations
     }
   });
+});
+
+// @desc  Check for overdue library books and notify students
+// @route POST /api/admin/check-overdue
+const checkLibraryOverdue = asyncHandler(async (req, res) => {
+  const now = new Date();
+
+  // Find all active loans that are past their due date
+  const overdueLoans = await LibraryRequest.find({
+    status: 'BORROWED',
+    dueDate: { $lt: now }
+  }).populate('studentId').populate('bookId');
+
+  const notifications = [];
+
+  for (const loan of overdueLoans) {
+    // Mark as OVERDUE in database
+    loan.status = 'OVERDUE';
+    await loan.save();
+
+    // Create alert for student
+    notifications.push({
+      user: loan.studentId._id,
+      title: '🚨 OVERDUE BOOK ALERT',
+      message: `Your loan for "${loan.bookId.title}" is overdue. Please return it to the library immediately to avoid penalties.`,
+      type: 'general'
+    });
+  }
+
+  if (notifications.length > 0) {
+    await Notification.insertMany(notifications);
+  }
+
+  res.json({ message: `System scan complete. Found and notified ${overdueLoans.length} overdue loans.` });
 });
 
 // @desc  Get all users (admin)
@@ -217,6 +252,29 @@ const adminDeleteBook = asyncHandler(async (req, res) => {
   res.json({ message: 'Book deleted by admin.' });
 });
 
+// @desc  Send global announcement to all users
+// @route POST /api/admin/announcement
+const sendGlobalAnnouncement = asyncHandler(async (req, res) => {
+  const { title, message } = req.body;
+  if (!title || !message) {
+    res.status(400);
+    throw new Error('Title and message are required.');
+  }
+
+  const users = await User.find({}).select('_id');
+
+  const notifications = users.map(u => ({
+    user: u._id,
+    title: `📢 Announcement: ${title}`,
+    message,
+    type: 'general'
+  }));
+
+  await Notification.insertMany(notifications);
+
+  res.json({ message: `Announcement sent to ${users.length} users.` });
+});
+
 module.exports = {
   getDashboardStats,
   getAllUsers,
@@ -227,5 +285,7 @@ module.exports = {
   manageShopApproval,
   manageLibraryApproval,
   getAllBooks,
-  adminDeleteBook
+  adminDeleteBook,
+  sendGlobalAnnouncement,
+  checkLibraryOverdue
 };

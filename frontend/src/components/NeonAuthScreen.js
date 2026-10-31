@@ -19,7 +19,7 @@ import { useThemeMode } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-// ─── Glowing Neon Input Component ──────────────────────────────────────────────
+// ─── Warm Glowing Input Component ──────────────────────────────────────────────
 export function NeonInput({
   label,
   value,
@@ -35,82 +35,133 @@ export function NeonInput({
   const isLight = theme.mode === 'light';
   const [focused, setFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(!secureTextEntry);
+  const inputRef = useRef(null);
+
+  // Animations
+  const borderAnim = useRef(new Animated.Value(0)).current;
+  const iconScale = useRef(new Animated.Value(1)).current;
+  const eyeScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(borderAnim, {
+      toValue: focused ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+
+    Animated.spring(iconScale, {
+      toValue: focused ? 1.15 : 1,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+  }, [focused]);
+
+  const togglePassword = () => {
+    Animated.sequence([
+      Animated.timing(eyeScale, { toValue: 0.7, duration: 100, useNativeDriver: true }),
+      Animated.timing(eyeScale, { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
+    setShowPassword(!showPassword);
+  };
+
+  const borderColorInterpolate = borderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.glassBorder, theme.primary],
+  });
 
   return (
     <View style={[inputStyles.wrapper, style]}>
-      {label && <Text style={[inputStyles.label, { color: theme.muted }]}>{label}</Text>}
-      <View
-        style={[
-          inputStyles.inputBox,
-          {
-            backgroundColor: isLight ? '#f8fafc' : '#090d20',
-            borderColor: focused ? theme.primary : (isLight ? '#e2e8f0' : 'rgba(88, 101, 242, 0.25)'),
-          },
-          focused && {
-            shadowColor: theme.primary,
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 3,
-          },
-        ]}
+      {label && (
+        <Text
+          style={[
+            inputStyles.label,
+            { color: focused ? theme.primary : theme.muted },
+          ]}
+        >
+          {label}
+        </Text>
+      )}
+
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => inputRef.current?.focus()}
       >
-        {icon && <Text style={inputStyles.leftIcon}>{icon}</Text>}
-        <TextInput
-          style={[inputStyles.input, { color: theme.text }]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.45)'}
-          secureTextEntry={secureTextEntry ? !showPassword : false}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize || 'none'}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-        {secureTextEntry && (
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={inputStyles.eyeBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={inputStyles.eyeIcon}>
-              {showPassword ? '👁️' : '👁️‍🗨️'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        <Animated.View
+          style={[
+            inputStyles.inputBox,
+            {
+              backgroundColor: isLight ? theme.backgroundOne : theme.backgroundTwo,
+              borderColor: borderColorInterpolate,
+            },
+            focused && {
+              shadowColor: theme.primary,
+              shadowOpacity: 0.3,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+            },
+          ]}
+        >
+          {icon && (
+            <Animated.Text
+              style={[inputStyles.leftIcon, { transform: [{ scale: iconScale }] }]}
+            >
+              {icon}
+            </Animated.Text>
+          )}
+
+          <TextInput
+            ref={inputRef}
+            style={[inputStyles.input, { color: theme.text }]}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={theme.muted + '90'}
+            secureTextEntry={secureTextEntry ? !showPassword : false}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize || 'none'}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            underlineColorAndroid="transparent"
+          />
+
+          {secureTextEntry && (
+            <TouchableOpacity
+              onPress={togglePassword}
+              style={inputStyles.eyeBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Animated.Text
+                style={[inputStyles.eyeIcon, { transform: [{ scale: eyeScale }] }]}
+              >
+                {showPassword ? '👁️' : '🔒'}
+              </Animated.Text>
+            </TouchableOpacity>
+          )}
+        </Animated.View>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const inputStyles = StyleSheet.create({
   wrapper: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94a3b8',
-    marginBottom: 6,
-    letterSpacing: 0.3,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 5,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#090d20',
     borderWidth: 1.5,
-    borderColor: 'rgba(88, 101, 242, 0.25)',
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 16,
     height: 52,
-  },
-  inputBoxFocused: {
-    borderColor: '#00f0ff',
-    backgroundColor: '#0c112b',
-    shadowColor: '#00f0ff',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 5,
   },
   leftIcon: {
     fontSize: 16,
@@ -118,29 +169,31 @@ const inputStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#f8fafc',
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
+    paddingVertical: 0,
+    height: '100%',
   },
   eyeBtn: {
     padding: 4,
   },
   eyeIcon: {
     fontSize: 16,
-    opacity: 0.8,
+    opacity: 0.85,
   },
 });
 
-// ─── Glowing Neon Button Component ──────────────────────────────────────────────
+// ─── Warm Glowing Button Component ──────────────────────────────────────────────
 export function NeonButton({ title, onPress, loading, style }) {
+  const { theme } = useThemeMode();
   const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () => {
-    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 30 }).start();
+    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true }).start();
   };
 
   const onPressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }).start();
+    Animated.spring(scale, { toValue: 1, tension: 60, friction: 6, useNativeDriver: true }).start();
   };
 
   return (
@@ -148,13 +201,18 @@ export function NeonButton({ title, onPress, loading, style }) {
       onPress={onPress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      activeOpacity={0.9}
+      activeOpacity={1}
       disabled={loading}
       style={[btnStyles.touchable, style]}
     >
-      <Animated.View style={{ transform: [{ scale }], width: '100%' }}>
+      <Animated.View
+        style={[
+          btnStyles.animatedWrap,
+          { transform: [{ scale }], shadowColor: theme.primary },
+        ]}
+      >
         <LinearGradient
-          colors={['#a855f7', '#3b82f6', '#06b6d4']}
+          colors={[theme.primary, theme.primaryDark, theme.accent]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={btnStyles.gradientBtn}
@@ -174,16 +232,19 @@ const btnStyles = StyleSheet.create({
   touchable: {
     marginTop: 8,
     marginBottom: 16,
-    borderRadius: 14,
-    shadowColor: '#a855f7',
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
+    borderRadius: 16,
+  },
+  animatedWrap: {
+    width: '100%',
+    borderRadius: 16,
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
   gradientBtn: {
-    height: 52,
-    borderRadius: 14,
+    height: 54,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -191,17 +252,17 @@ const btnStyles = StyleSheet.create({
   btnText: {
     color: '#ffffff',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
 });
 
-// ─── Main Frame Wrapper (Matches User's Frame) ──────────────────────────────────
+// ─── Main Auth Screen Wrapper ──────────────────────────────────
 export default function NeonAuthScreen({
   icon = '+',
   title = 'Create Your Account',
-  subtitle = 'Start smarter conversations with dual-model AI.',
+  subtitle = 'Start smarter transactions with campus book exchange.',
   children,
   footerText = 'Already have an account?',
   footerLinkText = 'Log in',
@@ -210,11 +271,17 @@ export default function NeonAuthScreen({
   const { theme } = useThemeMode();
   const isLight = theme.mode === 'light';
 
-  // Breathing background ambient lights animation
   const anim1 = useRef(new Animated.Value(0)).current;
   const anim2 = useRef(new Animated.Value(0)).current;
+  const cardScale = useRef(new Animated.Value(0.92)).current;
+  const cardFade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardFade, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.spring(cardScale, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
+    ]).start();
+
     Animated.loop(
       Animated.sequence([
         Animated.timing(anim1, { toValue: 1, duration: 6000, useNativeDriver: true }),
@@ -228,83 +295,81 @@ export default function NeonAuthScreen({
         Animated.timing(anim2, { toValue: 0, duration: 8000, useNativeDriver: true }),
       ])
     ).start();
-  }, [anim1, anim2]);
+  }, []);
 
   const translateY1 = anim1.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const translateY2 = anim2.interpolate({ inputRange: [0, 1], outputRange: [0, 40] });
 
   return (
     <LinearGradient
-      colors={isLight ? ['#ffffff', '#f8fafc', '#f1f5f9'] : ['#050714', '#0a0e28', '#040612']}
+      colors={isLight ? [theme.backgroundOne, theme.backgroundTwo, theme.backgroundThree] : [theme.backgroundOne, '#121212', '#000000']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.root}
     >
       <StatusBar barStyle={isLight ? "dark-content" : "light-content"} backgroundColor="transparent" translucent />
 
-      {/* Background Ambient Glows */}
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.glowBlob1,
-          isLight && { backgroundColor: 'rgba(220, 38, 38, 0.06)' },
+          { backgroundColor: theme.primary + '20' },
           { transform: [{ translateY: translateY1 }] },
         ]}
       />
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.glowBlob2,
-          isLight && { backgroundColor: 'rgba(225, 29, 72, 0.05)' },
+          { backgroundColor: theme.accent + '15' },
           { transform: [{ translateY: translateY2 }] },
         ]}
       />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
-          {/* Outer Glass Frame */}
-          <View
+          <Animated.View
             style={[
               styles.cardFrame,
-              isLight && {
-                backgroundColor: '#ffffff',
-                borderColor: '#e2e8f0',
-                shadowColor: '#0f172a',
-                shadowOpacity: 0.08,
-                shadowRadius: 20,
+              {
+                backgroundColor: theme.tabBg,
+                borderColor: theme.glassBorder,
+                shadowColor: isLight ? '#000' : theme.primary,
+                opacity: cardFade,
+                transform: [{ scale: cardScale }],
               },
             ]}
           >
-            {/* Top Accent Glow */}
-            <View style={[styles.topAccentGlow, isLight && { backgroundColor: theme.primary }]} />
+            <View
+              pointerEvents="none"
+              style={[styles.topAccentGlow, { backgroundColor: theme.primary, shadowColor: theme.primary }]}
+            />
 
-            {/* Glowing Icon Circle Badge */}
-            <View style={styles.iconCircleOuter}>
+            <View style={[styles.iconCircleOuter, { shadowColor: theme.primary }]}>
               <LinearGradient
-                colors={isLight ? [theme.primary, theme.accent] : ['#00f0ff', '#a855f7']}
+                colors={[theme.primary, theme.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.iconCircleGradient}
               >
-                <View style={[styles.iconCircleInner, isLight && { backgroundColor: '#ffffff' }]}>
-                  <Text style={[styles.iconText, isLight && { color: theme.primary }]}>{icon}</Text>
+                <View style={[styles.iconCircleInner, { backgroundColor: theme.backgroundTwo }]}>
+                  <Text style={[styles.iconText, { color: theme.primary }]}>{icon}</Text>
                 </View>
               </LinearGradient>
             </View>
 
-            {/* Title & Subtitle */}
             <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
             {subtitle ? <Text style={[styles.subtitle, { color: theme.muted }]}>{subtitle}</Text> : null}
 
-            {/* Card Main Body */}
             <View style={styles.cardContent}>{children}</View>
 
-            {/* Footer switch link */}
             {footerText ? (
               <View style={styles.footerRow}>
                 <Text style={[styles.footerText, { color: theme.muted }]}>{footerText} </Text>
@@ -313,7 +378,7 @@ export default function NeonAuthScreen({
                 </TouchableOpacity>
               </View>
             ) : null}
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -323,6 +388,7 @@ export default function NeonAuthScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    minHeight: '100%',
   },
   glowBlob1: {
     position: 'absolute',
@@ -331,7 +397,6 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(168, 85, 247, 0.18)',
   },
   glowBlob2: {
     position: 'absolute',
@@ -340,31 +405,28 @@ const styles = StyleSheet.create({
     width: 360,
     height: 360,
     borderRadius: 180,
-    backgroundColor: 'rgba(0, 240, 255, 0.14)',
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 50,
+    paddingTop: Platform.OS === 'ios' ? 65 : 45,
+    paddingBottom: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardFrame: {
     width: '100%',
     maxWidth: width > 500 ? 460 : 400,
-    backgroundColor: 'rgba(13, 17, 38, 0.88)',
     borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: 'rgba(139, 92, 246, 0.3)',
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 28,
+    paddingHorizontal: 22,
+    paddingTop: 28,
+    paddingBottom: 24,
     alignItems: 'center',
-    shadowColor: '#8b5cf6',
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
+    shadowOpacity: 0.18,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -373,23 +435,20 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
-    backgroundColor: '#00f0ff',
-    shadowColor: '#00f0ff',
+    height: 3,
     shadowOpacity: 0.8,
     shadowRadius: 8,
   },
   iconCircleOuter: {
-    marginBottom: 20,
-    shadowColor: '#00f0ff',
-    shadowOpacity: 0.6,
-    shadowRadius: 14,
+    marginBottom: 16,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     elevation: 8,
   },
   iconCircleGradient: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     padding: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -397,32 +456,28 @@ const styles = StyleSheet.create({
   iconCircleInner: {
     width: '100%',
     height: '100%',
-    borderRadius: 31,
-    backgroundColor: '#070a1c',
+    borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '300',
-    color: '#00f0ff',
     marginTop: Platform.OS === 'android' ? -2 : 0,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#ffffff',
+    fontSize: 23,
+    fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: -0.3,
-    marginBottom: 8,
+    letterSpacing: -0.4,
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-    fontWeight: '400',
+    lineHeight: 19,
+    marginBottom: 20,
+    fontWeight: '500',
     paddingHorizontal: 10,
   },
   cardContent: {
@@ -432,16 +487,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 18,
+    marginTop: 16,
   },
   footerText: {
-    fontSize: 14,
-    color: '#94a3b8',
+    fontSize: 13,
     fontWeight: '500',
   },
   footerLink: {
-    fontSize: 14,
-    color: '#c084fc',
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

@@ -49,7 +49,7 @@ const getBooks = asyncHandler(async (req, res) => {
   res.json(books);
 });
 
-// @desc  Get a single book by ID
+// @desc  Get a single book by ID with categorized availability
 // @route GET /api/books/:id
 const getBookById = asyncHandler(async (req, res) => {
   const book = await Book.findById(req.params.id)
@@ -60,7 +60,27 @@ const getBookById = asyncHandler(async (req, res) => {
     throw new Error('Book not found.');
   }
 
-  res.json(book);
+  // Find all availability of this book (by ISBN or same title if ISBN missing)
+  const query = { availability: true };
+  if (book.isbn) {
+    query.isbn = book.isbn;
+  } else {
+    query.title = book.title;
+  }
+
+  const allCopies = await Book.find(query)
+    .populate('owner', 'name email role shopName libraryName college location profileImage phone');
+
+  const libraries = allCopies.filter(b => b.sourceType === 'library' || b.role === 'library');
+  const shops = allCopies.filter(b => b.sourceType === 'shop' || b.role === 'shop');
+  const students = allCopies.filter(b => b.sourceType === 'student' || b.role === 'student');
+
+  res.json({
+    book,
+    libraries,
+    shops,
+    students
+  });
 });
 
 // @desc  Create a book (admin or authorized user)
@@ -89,6 +109,7 @@ const createBook = asyncHandler(async (req, res) => {
     imageUrl: imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=60',
     owner: req.user._id,
     role: req.user.role,
+    sourceType: req.user.role === 'shop' ? 'shop' : req.user.role === 'library' ? 'library' : 'student',
     location: location || req.user.location || '',
     latitude: latitude || req.user.latitude || 40.7128,
     longitude: longitude || req.user.longitude || -74.0060,

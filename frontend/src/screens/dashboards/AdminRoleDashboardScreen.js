@@ -1,332 +1,158 @@
-import React from 'react';
-import { Text, StyleSheet, View, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Text,
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  useWindowDimensions,
+  Animated,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import GlassScreen from '../../components/GlassScreen';
 import GlassCard from '../../components/GlassCard';
 import AppButton from '../../components/AppButton';
-import AppScrollView from '../../components/AppScrollView';
-import AppHeader from '../../components/AppHeader';
+import SectionHeader from '../../components/SectionHeader';
+import { useAuth } from '../../context/AuthContext';
 import { useThemeMode } from '../../context/ThemeContext';
-
-function SidebarActionItem({ icon, title, text, onPress }) {
-  const { theme } = useThemeMode();
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ width: '100%' }}>
-      <GlassCard style={styles.navCard}>
-        <View style={styles.navCardRow}>
-          <View style={[styles.iconCircle, { backgroundColor: theme.mode === 'light' ? '#f8fafc' : '#090a14', borderColor: theme.primary }]}>
-            <Text style={styles.navCardIcon}>{icon}</Text>
-          </View>
-          <View style={styles.navCardTextContainer}>
-            <Text style={[styles.navCardTitle, { color: theme.text }]} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text style={[styles.navCardSubtext, { color: theme.muted }]} numberOfLines={1}>
-              {text}
-            </Text>
-          </View>
-          <Text style={[styles.arrowIcon, { color: theme.primary }]}>→</Text>
-        </View>
-      </GlassCard>
-    </TouchableOpacity>
-  );
-}
-
-function StatBox({ icon, value, label }) {
-  const { theme } = useThemeMode();
-  return (
-    <View style={[styles.statBox, { borderColor: theme.glassBorder, backgroundColor: theme.mode === 'light' ? 'rgba(255,255,255,0.7)' : 'rgba(15, 17, 32, 0.6)' }]}>
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={[styles.statValue, { color: theme.primary }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.muted }]}>{label}</Text>
-    </View>
-  );
-}
+import api from '../../api/client';
 
 export default function AdminRoleDashboardScreen({ navigation }) {
-  const { theme } = useThemeMode();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+  const { theme, themeMode } = useThemeMode();
+  const isLight = themeMode === 'light';
 
-  const adminActions = [
-    {
-      icon: '👥',
-      title: 'User Management',
-      text: 'Manage users, block, assign roles',
-      onPress: () => {},
-    },
-    {
-      icon: '🏪',
-      title: 'Shop Owners',
-      text: 'Approve shops, view sales',
-      onPress: () => {},
-    },
-    {
-      icon: '🏛️',
-      title: 'Libraries',
-      text: 'Approve libraries, view reports',
-      onPress: () => {},
-    },
-    {
-      icon: '📚',
-      title: 'Book Catalog',
-      text: 'Manage all platform titles',
-      onPress: () => {},
-    },
-    {
-      icon: '🛒',
-      title: 'Marketplace',
-      text: 'Review & approve student listings',
-      onPress: () => {},
-    },
-    {
-      icon: '🎁',
-      title: 'Donations',
-      text: 'Approve or reject donations',
-      onPress: () => {},
-    },
-    {
-      icon: '🔔',
-      title: 'System Alerts',
-      text: 'Platform health & notifications',
-      onPress: () => navigation.navigate('Notifications'),
-    },
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  async function fetchStats() {
+    try {
+      setLoading(true);
+      const res = await api.get('/admin/stats');
+      setStats(res.data);
+    } catch (e) {
+      setStats({ totalUsers: 0, totalBooks: 0, totalLibraries: 0, totalShops: 0, totalDonations: 0, totalExchanges: 0, pendingShops: 0, todayActivity: { newUsers: 0 } });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchStats();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const adminModules = [
+    { title: 'User Manager', sub: 'Control access', icon: '👥', route: 'UserManagement', color: '#6366f1' },
+    { title: 'Org Approvals', sub: 'Verify stores', icon: '🛡️', route: 'OrganizationApproval', color: '#f59e0b' },
+    { title: 'Global Catalog', sub: 'Audit listings', icon: '📚', route: 'AdminBookCatalog', color: '#3b82f6' },
+    { title: 'Market Moderation', sub: 'Review sales', icon: '🛒', route: 'AdminMarketplace', color: '#10b981' },
   ];
 
   return (
     <GlassScreen>
-      <AppScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.dashboardWrapper, { flexDirection: isDesktop ? 'row' : 'column' }]}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+
+        {/* Admin Command Header */}
+        <LinearGradient
+          colors={['#1e293b', '#0f172a']}
+          style={styles.adminHeader}
+        >
+          <View style={styles.headerRow}>
+             <View>
+                <Text style={styles.adminLabel}>SYSTEM ADMINISTRATOR</Text>
+                <Text style={styles.adminTitle}>Master Control</Text>
+             </View>
+             <View style={styles.pulseDot} />
+          </View>
           
-          {/* LEFT SIDEBAR: ADMIN MODULES */}
-          <View style={[styles.sidebarColumn, isDesktop && styles.sidebarDesktop]}>
-            <GlassCard style={styles.sidebarContainer}>
-              <View style={styles.sidebarHeader}>
-                <View style={[styles.sidebarBadge, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.sidebarBadgeIcon}>🛡️</Text>
-                </View>
-                <View>
-                  <Text style={[styles.sidebarTitle, { color: theme.text }]}>Admin Control</Text>
-                  <Text style={[styles.sidebarSubtitle, { color: theme.muted }]}>System Modules</Text>
-                </View>
-              </View>
-
-              <View style={styles.navList}>
-                {adminActions.map((item, index) => (
-                  <SidebarActionItem
-                    key={index}
-                    icon={item.icon}
-                    title={item.title}
-                    text={item.text}
-                    onPress={item.onPress}
-                  />
-                ))}
-              </View>
-            </GlassCard>
+          <View style={styles.quickStatus}>
+             <Text style={styles.statusText}>● PLATFORM STATUS: ONLINE</Text>
+             <Text style={styles.versionText}>v2.0.4 - STABLE</Text>
           </View>
+        </LinearGradient>
 
-          {/* RIGHT MAIN PANEL: ADMIN DASHBOARD OVERVIEW */}
-          <View style={[styles.mainColumn, isDesktop && styles.mainDesktop]}>
-            <AppHeader
-              icon="🛡️"
-              label="System Control Center"
-              title="Admin Dashboard"
-              subtitle="Full platform administrative control over users, shops, libraries, and book transactions."
-            />
-
-            {/* System Overview Statistics */}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>System Overview Statistics</Text>
-            <View style={styles.statsRowContainer}>
-              <StatBox icon="👥" value="250+" label="Active Users" />
-              <StatBox icon="📚" value="1.2k" label="Total Books" />
-              <StatBox icon="🏛️" value="12" label="Libraries" />
-              <StatBox icon="🏪" value="18" label="Bookstores" />
-            </View>
-
-            <View style={styles.statsRowContainer}>
-              <StatBox icon="🎁" value="84" label="Donations" />
-              <StatBox icon="🔁" value="142" label="Swaps" />
-              <StatBox icon="⭐" value="4.9" label="App Rating" />
-              <StatBox icon="🔒" value="100%" label="System Health" />
-            </View>
-
-            {/* Management Hubs */}
-            <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 12 }]}>Platform Operations</Text>
-            
-            <GlassCard style={styles.hubCard}>
-              <View style={styles.hubHeader}>
-                <Text style={styles.hubIcon}>👥</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.hubTitle, { color: theme.text }]}>User & Access Control</Text>
-                  <Text style={[styles.hubText, { color: theme.muted }]}>Audit registered accounts, update user role permissions (Student, Library, Shop, Admin), and ban accounts violating terms.</Text>
-                </View>
-              </View>
-              <AppButton title="MANAGE USERS & ROLES →" onPress={() => {}} style={{ marginTop: 10 }} />
-            </GlassCard>
-
-            <GlassCard style={styles.hubCard}>
-              <View style={styles.hubHeader}>
-                <Text style={styles.hubIcon}>🏛️</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.hubTitle, { color: theme.text }]}>Library & Store Approvals</Text>
-                  <Text style={[styles.hubText, { color: theme.muted }]}>Verify credentials of newly registered institutional libraries and commercial local bookshops before publishing listings.</Text>
-                </View>
-              </View>
-              <AppButton title="VERIFY ORGANIZATIONS →" onPress={() => {}} style={{ marginTop: 10 }} />
-            </GlassCard>
-
-          </View>
+        {/* Real-time Counters */}
+        <SectionHeader title="System Metrics" />
+        <View style={styles.metricsGrid}>
+           <View style={[styles.metricItem, { backgroundColor: theme.backgroundTwo }]}>
+              <Text style={[styles.metricVal, { color: theme.primary }]}>{stats?.totalUsers}</Text>
+              <Text style={[styles.metricLab, { color: theme.muted }]}>USERS</Text>
+           </View>
+           <View style={[styles.metricItem, { backgroundColor: theme.backgroundTwo }]}>
+              <Text style={[styles.metricVal, { color: theme.primary }]}>{stats?.totalBooks}</Text>
+              <Text style={[styles.metricLab, { color: theme.muted }]}>BOOKS</Text>
+           </View>
+           <View style={[styles.metricItem, { backgroundColor: theme.backgroundTwo }]}>
+              <Text style={[styles.metricVal, { color: theme.primary }]}>{stats?.pendingShops}</Text>
+              <Text style={[styles.metricLab, { color: theme.muted }]}>PENDING</Text>
+           </View>
         </View>
-      </AppScrollView>
+
+        {/* Management Modules */}
+        <SectionHeader title="Control Modules" />
+        <View style={styles.moduleGrid}>
+           {adminModules.map((m, idx) => (
+             <TouchableOpacity key={idx} style={styles.moduleItem} onPress={() => navigation.navigate(m.route)}>
+                <GlassCard style={styles.moduleCard}>
+                   <View style={[styles.moduleIcon, { backgroundColor: m.color + '20' }]}>
+                      <Text style={{ fontSize: 24 }}>{m.icon}</Text>
+                   </View>
+                   <Text style={[styles.moduleTitle, { color: theme.text }]}>{m.title}</Text>
+                   <Text style={[styles.moduleSub, { color: theme.muted }]}>{m.sub}</Text>
+                </GlassCard>
+             </TouchableOpacity>
+           ))}
+        </View>
+
+        {/* Critical Maintenance Tasks */}
+        <SectionHeader title="System Operations" />
+        <GlassCard style={styles.opsCard}>
+           <Text style={[styles.opsTitle, { color: theme.text }]}>Global Announcements</Text>
+           <Text style={[styles.opsSub, { color: theme.muted }]}>Broadcast important updates to all users instantly.</Text>
+           <AppButton title="OPEN BROADCAST CENTER" onPress={() => navigation.navigate('AdminDashboard')} style={{ marginTop: 15 }} />
+        </GlassCard>
+
+        <TouchableOpacity
+          style={[styles.securityBar, { backgroundColor: theme.backgroundTwo }]}
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <Text style={{ fontSize: 20 }}>🔒</Text>
+          <Text style={[styles.securityText, { color: theme.text }]}>Security Audit & Logs</Text>
+          <Text style={{ color: theme.primary, fontWeight: '900' }}>→</Text>
+        </TouchableOpacity>
+
+      </ScrollView>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    paddingBottom: 90,
-  },
-  dashboardWrapper: {
-    gap: 16,
-  },
-  sidebarColumn: {
-    width: '100%',
-  },
-  sidebarDesktop: {
-    width: 320,
-  },
-  mainColumn: {
-    flex: 1,
-  },
-  mainDesktop: {
-    flex: 1,
-  },
-  sidebarContainer: {
-    padding: 16,
-  },
-  sidebarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.15)',
-  },
-  sidebarBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  sidebarBadgeIcon: {
-    fontSize: 20,
-  },
-  sidebarTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: -0.2,
-  },
-  sidebarSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  navList: {
-    gap: 6,
-  },
-  navCard: {
-    padding: 10,
-    marginVertical: 2,
-  },
-  navCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  navCardIcon: {
-    fontSize: 18,
-  },
-  navCardTextContainer: {
-    flex: 1,
-  },
-  navCardTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  navCardSubtext: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  arrowIcon: {
-    fontSize: 16,
-    fontWeight: '900',
-    marginLeft: 6,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 12,
-    marginTop: 6,
-    letterSpacing: 0.2,
-  },
-  statsRowContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 12,
-  },
-  statBox: {
-    flex: 1,
-    minWidth: 110,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  statIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  hubCard: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  hubHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  hubIcon: {
-    fontSize: 28,
-    marginRight: 12,
-    marginTop: 2,
-  },
-  hubTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  hubText: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
+  container: { padding: 20, paddingBottom: 110 },
+  adminHeader: { padding: 30, borderRadius: 32, marginBottom: 25, elevation: 10 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  adminLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  adminTitle: { color: '#fff', fontSize: 28, fontWeight: '900', marginTop: 5 },
+  pulseDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#10b981', shadowColor: '#10b981', shadowRadius: 10, shadowOpacity: 1, elevation: 10 },
+  quickStatus: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 25, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 15 },
+  statusText: { color: '#10b981', fontSize: 10, fontWeight: '900' },
+  versionText: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' },
+  metricsGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  metricItem: { flex: 1, padding: 18, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  metricVal: { fontSize: 22, fontWeight: '900' },
+  metricLab: { fontSize: 9, fontWeight: '800', marginTop: 4 },
+  moduleGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  moduleItem: { width: '48%', marginBottom: 15 },
+  moduleCard: { padding: 20, marginVertical: 0, borderRadius: 24 },
+  moduleIcon: { width: 50, height: 50, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
+  moduleTitle: { fontSize: 15, fontWeight: '900' },
+  moduleSub: { fontSize: 11, marginTop: 4, fontWeight: '500' },
+  opsCard: { padding: 22, borderRadius: 28 },
+  opsTitle: { fontSize: 18, fontWeight: '900' },
+  opsSub: { fontSize: 13, marginTop: 4, lineHeight: 18 },
+  securityBar: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, marginTop: 15, gap: 15 },
+  securityText: { flex: 1, fontSize: 14, fontWeight: '700' },
 });

@@ -27,7 +27,7 @@ const donationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['available', 'claimed', 'completed'],
+      enum: ['available', 'pending_claim', 'claimed', 'completed', 'rejected'],
       default: 'available'
     },
     pickupLocation: {

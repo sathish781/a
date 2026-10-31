@@ -3,11 +3,15 @@ const Exchange = require('../models/Exchange');
 const Notification = require('../models/Notification');
 const asyncHandler = require('../utils/asyncHandler');
 
-// @desc  Get available exchange books
+// @desc  Get available exchange books from other students
 // @route GET /api/exchanges
 const getExchanges = asyncHandler(async (req, res) => {
-  // Return books listed as available for exchange
-  const books = await Book.find({ exchangeStatus: 'available', availability: true })
+  // Return all books listed as available for exchange
+  const books = await Book.find({
+    listingType: 'exchange',
+    availability: true
+    // owner filter removed so you can see your own listings for testing/verification
+  })
     .populate('owner', 'name email phone college location profileImage')
     .sort({ createdAt: -1 });
   res.json(books);
@@ -74,22 +78,24 @@ const createExchangeRequest = asyncHandler(async (req, res) => {
   const exchange = await Exchange.create({
     requester: req.user._id,
     requestedBook: requestedBookId,
+    requestedBookTitle: requestedBook.title, // Fixed: ensure titles are saved
     targetUser: requestedBook.owner._id,
     offeredBook: offeredBookId,
+    offeredBookTitle: offeredBook.title, // Fixed: ensure titles are saved
     message: message || '',
     status: 'pending'
   });
 
-  // Notify the target user
+  // Notify the target student
   await Notification.create({
     user: requestedBook.owner._id,
-    title: 'Exchange Request Received',
-    message: `${req.user.name} wants to exchange a book with you. Check your exchange requests.`,
+    title: '📩 New Book Swap Request!',
+    message: `${req.user.name} wants to swap "${offeredBook.title}" for your book "${requestedBook.title}".`,
     type: 'exchange_request',
     data: { exchangeId: exchange._id }
   });
 
-  res.status(201).json({ message: 'Exchange request sent.', exchange });
+  res.status(201).json({ message: 'Exchange request sent successfully.', exchange });
 });
 
 // @desc  Accept an exchange request
@@ -113,20 +119,42 @@ const acceptExchange = asyncHandler(async (req, res) => {
   exchange.status = 'accepted';
   await exchange.save();
 
-  // Update book exchange statuses
-  await Book.findByIdAndUpdate(exchange.requestedBook._id, { exchangeStatus: 'exchanged', availability: false });
-  await Book.findByIdAndUpdate(exchange.offeredBook._id, { exchangeStatus: 'exchanged', availability: false });
+  // Swap book owners & mark exchanged
+  if (exchange.requestedBook) {
+    await Book.findByIdAndUpdate(exchange.requestedBook._id, {
+      owner: exchange.requester._id,
+      exchangeStatus: 'exchanged',
+      availability: false
+    });
+  }
 
-  // Notify requester
+  if (exchange.offeredBook) {
+    await Book.findByIdAndUpdate(exchange.offeredBook._id, {
+      owner: req.user._id,
+      exchangeStatus: 'exchanged',
+      availability: false
+    });
+  }
+
+  // 1. Notify requester (Student A)
   await Notification.create({
     user: exchange.requester._id,
-    title: 'Exchange Accepted!',
-    message: `Your exchange request for "${exchange.requestedBook.title}" has been accepted!`,
+    title: '🎉 Exchange Accepted & Books Swapped!',
+    message: `${req.user.name} accepted your swap request! You have received "${exchange.requestedBook?.title || 'the book'}".`,
     type: 'exchange_accepted',
     data: { exchangeId: exchange._id }
   });
 
-  res.json({ message: 'Exchange accepted.', exchange });
+  // 2. Notify acceptor (Student B)
+  await Notification.create({
+    user: req.user._id,
+    title: '✅ Book Swap Completed!',
+    message: `You accepted the swap request with ${exchange.requester?.name || 'the student'}. You received "${exchange.offeredBook?.title || 'the book'}".`,
+    type: 'exchange_accepted',
+    data: { exchangeId: exchange._id }
+  });
+
+  res.json({ message: 'Exchange accepted! Books have been swapped successfully.', exchange });
 });
 
 // @desc  Reject an exchange request
@@ -179,6 +207,42 @@ const getAllExchanges = asyncHandler(async (req, res) => {
   res.json(exchanges);
 });
 
+// @desc  Find automated exchange matches
+// @route GET /api/exchanges/matches
+const findExchangeMatches = asyncHandler(async (req, res) => {
+  // Find books I have that others want, AND books others have that I want
+  const myBooks = await Book.find({ owner: req.user._id, listingType: 'exchange' });
+
+  if (!myBooks.length) {
+    return res.json([]);
+  }
+
+  const matches = [];
+
+  for (const myBook of myBooks) {
+    // 1. Find people who want my book
+    const interestedParties = await Book.find({
+      owner: { $ne: req.user._id },
+      listingType: 'exchange',
+      wantsInExchange: { $regex: myBook.title, $options: 'i' }
+    }).populate('owner', 'name email locationName');
+
+    for (const partnerBook of interestedParties) {
+      // 2. Check if I want what they have
+      if (myBook.wantsInExchange && partnerBook.title.toLowerCase().includes(myBook.wantsInExchange.toLowerCase())) {
+        matches.push({
+          myBook,
+          partnerBook,
+          partner: partnerBook.owner,
+          matchType: '🎯 Direct Match'
+        });
+      }
+    }
+  }
+
+  res.json(matches);
+});
+
 module.exports = {
   getExchanges,
   listBookForExchange,
@@ -186,5 +250,6 @@ module.exports = {
   acceptExchange,
   rejectExchange,
   getMyExchanges,
-  getAllExchanges
+  getAllExchanges,
+  findExchangeMatches
 };

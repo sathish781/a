@@ -1,350 +1,182 @@
-import React from 'react';
-import { Text, StyleSheet, View, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Text, StyleSheet, View, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import GlassScreen from '../../components/GlassScreen';
 import GlassCard from '../../components/GlassCard';
-import AppButton from '../../components/AppButton';
-import AppScrollView from '../../components/AppScrollView';
-import AppHeader from '../../components/AppHeader';
+import SectionHeader from '../../components/SectionHeader';
+import AnimatedNumber from '../../components/AnimatedNumber';
 import { useAuth } from '../../context/AuthContext';
 import { useThemeMode } from '../../context/ThemeContext';
-
-function SidebarActionItem({ icon, title, text, onPress }) {
-  const { theme } = useThemeMode();
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ width: '100%' }}>
-      <GlassCard style={styles.navCard}>
-        <View style={styles.navCardRow}>
-          <View style={[styles.iconCircle, { backgroundColor: theme.mode === 'light' ? '#f8fafc' : '#090a14', borderColor: theme.primary }]}>
-            <Text style={styles.navCardIcon}>{icon}</Text>
-          </View>
-          <View style={styles.navCardTextContainer}>
-            <Text style={[styles.navCardTitle, { color: theme.text }]} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text style={[styles.navCardSubtext, { color: theme.muted }]} numberOfLines={1}>
-              {text}
-            </Text>
-          </View>
-          <Text style={[styles.arrowIcon, { color: theme.primary }]}>→</Text>
-        </View>
-      </GlassCard>
-    </TouchableOpacity>
-  );
-}
-
-function StatBox({ icon, value, label }) {
-  const { theme } = useThemeMode();
-  return (
-    <View style={[styles.statBox, { borderColor: theme.glassBorder, backgroundColor: theme.mode === 'light' ? 'rgba(255,255,255,0.7)' : 'rgba(15, 17, 32, 0.6)' }]}>
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={[styles.statValue, { color: theme.primary }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.muted }]}>{label}</Text>
-    </View>
-  );
-}
+import api from '../../api/client';
 
 export default function StudentDashboardScreen({ navigation }) {
   const { user } = useAuth();
-  const { theme } = useThemeMode();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+  const { theme, themeMode } = useThemeMode();
+  const isLight = themeMode === 'light';
 
-  const exploreActions = [
-    {
-      icon: '🏠',
-      title: 'Home Portal',
-      text: 'Return to main home page',
-      onPress: () => navigation.navigate('MainTabs', { screen: 'Home' }),
-    },
-    {
-      icon: '🔎',
-      title: 'Search Books',
-      text: 'Library, shops & market search',
-      onPress: () => navigation.navigate('Search'),
-    },
-    {
-      icon: '🛒',
-      title: 'Buy Books',
-      text: 'Explore student marketplace',
-      onPress: () => navigation.navigate('Market'),
-    },
-    {
-      icon: '📸',
-      title: 'Sell Books',
-      text: 'Post listing for your book',
-      onPress: () => navigation.navigate('SellBook'),
-    },
-    {
-      icon: '🔁',
-      title: 'Book Exchange',
-      text: 'Swap books with campus peers',
-      onPress: () => navigation.navigate('Exchange'),
-    },
-    {
-      icon: '🎁',
-      title: 'Donate Books',
-      text: 'Donation hub & book requests',
-      onPress: () => navigation.navigate('Donate'),
-    },
-    {
-      icon: '📋',
-      title: 'Reservations',
-      text: 'Library book hold status',
-      onPress: () => navigation.navigate('Notifications'),
-    },
-    {
-      icon: '🔔',
-      title: 'Notifications',
-      text: 'Alerts & updates on requests',
-      onPress: () => navigation.navigate('Notifications'),
-    },
-    {
-      icon: '👤',
-      title: 'My Profile',
-      text: 'Profile & account settings',
-      onPress: () => navigation.navigate('Profile'),
-    },
+  const [stats, setStats] = useState({
+    listedBooks: 0,
+    activeSwaps: 0,
+    donations: 0,
+    reservations: 0,
+  });
+
+  async function fetchStats() {
+    try {
+      const res = await api.get('/stats/student-dashboard');
+      setStats(res.data);
+    } catch (error) {
+      setStats({ listedBooks: 0, activeSwaps: 0, donations: 0, reservations: 0 });
+    }
+  }
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchStats();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const studentActions = [
+    { title: 'My Listings', sub: 'Books you are selling', icon: '📦', route: 'Market', color: '#6366f1' },
+    { title: 'Active Swaps', sub: 'Your pending exchanges', icon: '🔁', route: 'Exchange', color: '#f59e0b' },
+    { title: 'My Donations', sub: 'Free books you shared', icon: '🎁', route: 'Donate', color: '#ec4899' },
+    { title: 'Hold History', sub: 'Library issued books', icon: '📋', route: 'BorrowHistory', color: '#10b981' },
   ];
 
   return (
     <GlassScreen>
-      <AppScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.dashboardWrapper, { flexDirection: isDesktop ? 'row' : 'column' }]}>
-          
-          {/* LEFT SIDEBAR: EXPLORE & ACTIONS */}
-          <View style={[styles.sidebarColumn, isDesktop && styles.sidebarDesktop]}>
-            <GlassCard style={styles.sidebarContainer}>
-              <View style={styles.sidebarHeader}>
-                <View style={[styles.sidebarBadge, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.sidebarBadgeIcon}>🧭</Text>
-                </View>
-                <View>
-                  <Text style={[styles.sidebarTitle, { color: theme.text }]}>Explore & Navigation</Text>
-                  <Text style={[styles.sidebarSubtitle, { color: theme.muted }]}>Student Quick Actions</Text>
-                </View>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+
+        {/* Profile Card */}
+        <LinearGradient
+          colors={isLight ? ['#ffffff', '#f8fafc'] : [theme.backgroundTwo, theme.backgroundOne]}
+          style={[styles.profileCard, { borderColor: theme.glassBorder }]}
+        >
+          <View style={styles.profileRow}>
+            <LinearGradient colors={[theme.primary, theme.accent]} style={styles.largeAvatar}>
+              <Text style={styles.avatarTxt}>{(user?.name || 'U')[0]}</Text>
+            </LinearGradient>
+            <View style={styles.profileInfo}>
+              <Text style={[styles.userName, { color: theme.text }]}>{user?.name}</Text>
+              <Text style={[styles.userCollege, { color: theme.muted }]}>
+                {user?.college || 'University Student'}
+              </Text>
+              <View style={[styles.roleBadge, { backgroundColor: theme.primary + '18' }]}>
+                <Text style={[styles.roleTxt, { color: theme.primary }]}>STUDENT PORTAL</Text>
               </View>
-
-              <View style={styles.navList}>
-                {exploreActions.map((item, index) => (
-                  <SidebarActionItem
-                    key={index}
-                    icon={item.icon}
-                    title={item.title}
-                    text={item.text}
-                    onPress={item.onPress}
-                  />
-                ))}
-              </View>
-            </GlassCard>
-          </View>
-
-          {/* RIGHT MAIN PANEL: STUDENT DASHBOARD OVERVIEW */}
-          <View style={[styles.mainColumn, isDesktop && styles.mainDesktop]}>
-            <AppHeader
-              icon="🎓"
-              label="Student Control Center"
-              title={`Hi, ${user?.name || 'Student'}`}
-              subtitle="Manage your book searches, sales, swaps, donations, and reservations."
-            />
-
-            {/* Quick Metrics */}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>My Quick Summary</Text>
-            <View style={styles.statsRowContainer}>
-              <StatBox icon="📚" value="4" label="Listed Books" />
-              <StatBox icon="🔁" value="2" label="Active Swaps" />
-              <StatBox icon="🎁" value="1" label="Donations" />
-              <StatBox icon="📋" value="3" label="Reservations" />
             </View>
+          </View>
+        </LinearGradient>
 
-            {/* Main Action Hub Cards */}
-            <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 12 }]}>Featured Actions</Text>
-            
-            <GlassCard style={styles.hubCard}>
-              <View style={styles.hubHeader}>
-                <Text style={styles.hubIcon}>🔎</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.hubTitle, { color: theme.text }]}>Smart Multi-Source Book Search</Text>
-                  <Text style={[styles.hubText, { color: theme.muted }]}>Find availability & compare prices across college library, local bookstores, and fellow student listings.</Text>
-                </View>
-              </View>
-              <AppButton title="OPEN SEARCH ENGINE →" onPress={() => navigation.navigate('Search')} style={{ marginTop: 10 }} />
-            </GlassCard>
-
-            <GlassCard style={styles.hubCard}>
-              <View style={styles.hubHeader}>
-                <Text style={styles.hubIcon}>📸</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.hubTitle, { color: theme.text }]}>Post a Book for Sale / Exchange</Text>
-                  <Text style={[styles.hubText, { color: theme.muted }]}>Take photos of your used textbooks, set condition & pricing, and list them instantly for campus buyers.</Text>
-                </View>
-              </View>
-              <AppButton title="POST BOOK FOR SALE →" onPress={() => navigation.navigate('SellBook')} style={{ marginTop: 10 }} />
-            </GlassCard>
-
-            <GlassCard style={styles.hubCard}>
-              <View style={styles.hubHeader}>
-                <Text style={styles.hubIcon}>🔁</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.hubTitle, { color: theme.text }]}>Peer-to-Peer Book Exchange Hub</Text>
-                  <Text style={[styles.hubText, { color: theme.muted }]}>Directly swap course books with other students without spending extra money.</Text>
-                </View>
-              </View>
-              <AppButton title="GO TO EXCHANGE HUB →" onPress={() => navigation.navigate('Exchange')} style={{ marginTop: 10 }} />
-            </GlassCard>
-
+        {/* Quick Stats Grid with Animated Counters */}
+        <SectionHeader title="Your Activity" />
+        <View style={styles.statsRow}>
+          <View style={[styles.statBox, { backgroundColor: '#6366f1' }]}>
+            <AnimatedNumber value={stats.listedBooks} style={styles.statVal} />
+            <Text style={styles.statLab}>LISTED</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: '#f59e0b' }]}>
+            <AnimatedNumber value={stats.activeSwaps} style={styles.statVal} />
+            <Text style={styles.statLab}>SWAPS</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: '#ec4899' }]}>
+            <AnimatedNumber value={stats.donations} style={styles.statVal} />
+            <Text style={styles.statLab}>GIFTS</Text>
           </View>
         </View>
-      </AppScrollView>
+
+        {/* Management Grid */}
+        <SectionHeader title="Management Hub" />
+        <View style={styles.menuGrid}>
+          {studentActions.map((item, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={styles.menuItem}
+              onPress={() => navigation.navigate(item.route)}
+              activeOpacity={0.88}
+            >
+              <GlassCard style={styles.menuCard}>
+                <View style={[styles.menuIconBox, { backgroundColor: item.color + '18' }]}>
+                  <Text style={styles.menuEmoji}>{item.icon}</Text>
+                </View>
+                <Text style={[styles.menuTitle, { color: theme.text }]}>{item.title}</Text>
+                <Text style={[styles.menuSub, { color: theme.muted }]}>{item.sub}</Text>
+              </GlassCard>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Recent Notifications Shortcut */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={[
+            styles.notifBar,
+            { backgroundColor: theme.backgroundTwo, borderColor: theme.glassBorder },
+          ]}
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <Text style={{ fontSize: 20 }}>🔔</Text>
+          <Text style={[styles.notifText, { color: theme.text }]}>Check for new swap requests & alerts</Text>
+          <Text style={{ color: theme.primary, fontWeight: '900', fontSize: 18 }}>→</Text>
+        </TouchableOpacity>
+
+      </ScrollView>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    paddingBottom: 90,
-  },
-  dashboardWrapper: {
-    gap: 16,
-  },
-  sidebarColumn: {
-    width: '100%',
-  },
-  sidebarDesktop: {
-    width: 320,
-  },
-  mainColumn: {
-    flex: 1,
-  },
-  mainDesktop: {
-    flex: 1,
-  },
-  sidebarContainer: {
-    padding: 16,
-  },
-  sidebarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.15)',
-  },
-  sidebarBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  sidebarBadgeIcon: {
-    fontSize: 20,
-  },
-  sidebarTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: -0.2,
-  },
-  sidebarSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  navList: {
-    gap: 6,
-  },
-  navCard: {
-    padding: 10,
-    marginVertical: 2,
-  },
-  navCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  container: { padding: 20, paddingBottom: 110 },
+  profileCard: {
+    padding: 22,
+    borderRadius: 28,
     borderWidth: 1.5,
+    marginBottom: 20,
+    elevation: 4,
+  },
+  profileRow: { flexDirection: 'row', alignItems: 'center' },
+  largeAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    elevation: 6,
   },
-  navCardIcon: {
-    fontSize: 18,
-  },
-  navCardTextContainer: {
-    flex: 1,
-  },
-  navCardTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  navCardSubtext: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  arrowIcon: {
-    fontSize: 16,
-    fontWeight: '900',
-    marginLeft: 6,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 12,
-    marginTop: 6,
-    letterSpacing: 0.2,
-  },
-  statsRowContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 12,
-  },
+  avatarTxt: { color: '#fff', fontSize: 32, fontWeight: '900' },
+  profileInfo: { marginLeft: 16, flex: 1 },
+  userName: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
+  userCollege: { fontSize: 13, marginTop: 2, fontWeight: '500' },
+  roleBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 6 },
+  roleTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   statBox: {
-    flex: 1,
-    minWidth: 110,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
+    width: '31%',
+    paddingVertical: 18,
+    borderRadius: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
   },
-  statIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  hubCard: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  hubHeader: {
+  statVal: { color: '#fff', fontSize: 24, fontWeight: '900' },
+  statLab: { color: 'rgba(255,255,255,0.85)', fontSize: 9, fontWeight: '800', marginTop: 2 },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  menuItem: { width: '48%', marginBottom: 14 },
+  menuCard: { padding: 16, alignItems: 'flex-start', marginVertical: 0, borderRadius: 22 },
+  menuIconBox: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  menuEmoji: { fontSize: 22 },
+  menuTitle: { fontSize: 15, fontWeight: '900' },
+  menuSub: { fontSize: 10, marginTop: 4, lineHeight: 14, fontWeight: '500' },
+  notifBar: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    marginTop: 10,
+    gap: 12,
   },
-  hubIcon: {
-    fontSize: 28,
-    marginRight: 12,
-    marginTop: 2,
-  },
-  hubTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  hubText: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
+  notifText: { flex: 1, fontSize: 13, fontWeight: '700' },
 });

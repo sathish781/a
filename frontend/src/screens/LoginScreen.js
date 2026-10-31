@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Text,
   StyleSheet,
-  Alert,
   View,
   TouchableOpacity,
   Animated,
@@ -10,16 +9,20 @@ import {
 
 import NeonAuthScreen, { NeonInput, NeonButton } from '../components/NeonAuthScreen';
 import { useAuth } from '../context/AuthContext';
+import { useThemeMode } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 
 const ROLES = [
   { id: 'student', label: 'Student', icon: '🎓' },
-  { id: 'shop_owner', label: 'Shop Owner', icon: '🏪' },
+  { id: 'shop', label: 'Shop Owner', icon: '🏪' },
   { id: 'library', label: 'Librarian', icon: '📚' },
 ];
 
 export default function LoginScreen({ route, navigation }) {
   const { login } = useAuth();
-  
+  const { theme } = useThemeMode();
+  const { showToast } = useToast();
+
   const initialRole = route?.params?.role || 'student';
   const [selectedRole, setSelectedRole] = useState(initialRole);
   const [email, setEmail] = useState('');
@@ -28,15 +31,25 @@ export default function LoginScreen({ route, navigation }) {
 
   async function handleLogin() {
     if (!email || !password) {
-      Alert.alert('Missing Details', 'Please enter your email and password.');
+      showToast('Please enter your email and password.', 'error');
       return;
     }
+    const cleanEmail = email.trim().toLowerCase();
     try {
       setLoading(true);
-      const loggedUser = await login(email.trim(), password, selectedRole);
-      Alert.alert('Welcome back!', `Hello, ${loggedUser.name || loggedUser.ownerName || loggedUser.librarianName || 'User'} 👋`);
+      const loggedUser = await login(cleanEmail, password, selectedRole);
+      showToast(`Welcome back, ${loggedUser.name || 'User'}! 🎉`, 'success');
     } catch (error) {
-      Alert.alert('Login Failed', error.response?.data?.message || 'Backend not connected. Check backend server.');
+      console.log('Login Error Object:', error);
+      let errorMsg = 'Check your credentials or server connection.';
+
+      if (error.response) {
+        errorMsg = error.response.data?.message || `Server error (${error.response.status})`;
+      } else if (error.request) {
+        errorMsg = 'Cannot reach server. Verify your internet/server connection.';
+      }
+
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -45,37 +58,60 @@ export default function LoginScreen({ route, navigation }) {
   return (
     <NeonAuthScreen
       icon="🔒"
-      title="Welcome Back"
-      subtitle="Sign in to manage your books, exchanges, and orders."
-      footerText="Don't have an account?"
-      footerLinkText="Create one"
+      title={selectedRole === 'admin' ? "Admin Portal Login" : "Welcome Back"}
+      subtitle={selectedRole === 'admin' ? "Sign in with administrator privileges to manage the platform." : "Sign in to manage your books, exchanges, and orders."}
+      footerText={selectedRole === 'admin' ? "" : "Don't have an account?"}
+      footerLinkText={selectedRole === 'admin' ? "" : "Create one"}
       onFooterLinkPress={() => navigation.navigate('Register', { role: selectedRole })}
     >
       {/* Role Selection Chips */}
-      <Text style={styles.roleHeaderLabel}>Select Your Role</Text>
-      <View style={styles.roleRow}>
-        {ROLES.map((role) => {
-          const isActive = selectedRole === role.id;
-          return (
-            <TouchableOpacity
-              key={role.id}
-              activeOpacity={0.8}
-              onPress={() => setSelectedRole(role.id)}
-              style={[
-                styles.roleChip,
-                isActive && styles.roleChipActive,
-              ]}
-            >
-              <Text style={styles.roleChipIcon}>{role.icon}</Text>
-              <Text style={[styles.roleChipText, isActive && styles.roleChipTextActive]}>
-                {role.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      {selectedRole !== 'admin' ? (
+        <>
+          <Text style={styles.roleHeaderLabel}>Select Your Role</Text>
+          <View style={styles.roleRow}>
+            {ROLES.map((role) => {
+              const isActive = selectedRole === role.id;
+              return (
+                <TouchableOpacity
+                  key={role.id}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedRole(role.id)}
+                  style={[
+                    styles.roleChip,
+                    {
+                      backgroundColor: theme.backgroundOne,
+                      borderColor: isActive ? theme.primary : theme.glassBorder,
+                    },
+                    isActive && {
+                      shadowColor: theme.primary,
+                      shadowOpacity: 0.35,
+                      shadowRadius: 8,
+                      elevation: 4,
+                    },
+                  ]}
+                >
+                  <Text style={styles.roleChipIcon}>{role.icon}</Text>
+                  <Text
+                    style={[
+                      styles.roleChipText,
+                      { color: isActive ? theme.primary : theme.muted, fontWeight: isActive ? '800' : '600' },
+                    ]}
+                  >
+                    {role.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      ) : (
+        <View style={styles.adminBanner}>
+          <Text style={[styles.adminBannerText, { color: theme.danger }]}>
+            🛡️ Logging in with System Administrator Role
+          </Text>
+        </View>
+      )}
 
-      {/* Input Fields */}
       <NeonInput
         label="Email address"
         value={email}
@@ -83,6 +119,7 @@ export default function LoginScreen({ route, navigation }) {
         placeholder="you@university.edu"
         keyboardType="email-address"
         autoCapitalize="none"
+        icon="✉️"
       />
 
       <NeonInput
@@ -91,32 +128,30 @@ export default function LoginScreen({ route, navigation }) {
         onChangeText={setPassword}
         placeholder="Enter your password"
         secureTextEntry
+        icon="🔑"
       />
 
-      {/* Forgot Password Link */}
       <TouchableOpacity
         onPress={() => navigation.navigate('ForgotPassword')}
         style={styles.forgotBtn}
         activeOpacity={0.7}
       >
-        <Text style={styles.forgotText}>Forgot password?</Text>
+        <Text style={[styles.forgotText, { color: theme.accent }]}>Forgot password?</Text>
       </TouchableOpacity>
 
-      {/* Sign In Action Button */}
       <NeonButton
         title={selectedRole === 'admin' ? "LOG IN AS ADMIN" : "LOG IN"}
         onPress={handleLogin}
         loading={loading}
       />
 
-      {/* Explicit Admin Login Access Button */}
       <TouchableOpacity
         onPress={() => setSelectedRole(selectedRole === 'admin' ? 'student' : 'admin')}
         style={styles.adminToggleBtn}
         activeOpacity={0.8}
       >
-        <Text style={styles.adminToggleText}>
-          {selectedRole === 'admin' ? "← Return to User Login" : "🛡️ Admin Login Access"}
+        <Text style={[styles.adminToggleText, { color: theme.danger }]}>
+          {selectedRole === 'admin' ? "← Return to Standard Login" : "🛡️ Admin Login Access"}
         </Text>
       </TouchableOpacity>
     </NeonAuthScreen>
@@ -125,17 +160,17 @@ export default function LoginScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   roleHeaderLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: '#94a3b8',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   roleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 18,
+    marginBottom: 16,
     gap: 8,
   },
   roleChip: {
@@ -144,19 +179,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: '#090d20',
+    paddingHorizontal: 6,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'rgba(88, 101, 242, 0.2)',
-  },
-  roleChipActive: {
-    borderColor: '#00f0ff',
-    backgroundColor: '#0c122e',
-    shadowColor: '#00f0ff',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   roleChipIcon: {
     fontSize: 15,
@@ -164,32 +189,36 @@ const styles = StyleSheet.create({
   },
   roleChipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  roleChipTextActive: {
-    color: '#00f0ff',
-    fontWeight: '700',
   },
   forgotBtn: {
     alignSelf: 'flex-end',
-    marginBottom: 16,
-    marginTop: -4,
+    marginBottom: 14,
+    marginTop: -2,
   },
   forgotText: {
     fontSize: 13,
-    color: '#c084fc',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   adminToggleBtn: {
-    marginTop: 14,
-    paddingVertical: 10,
+    marginTop: 10,
+    paddingVertical: 8,
     alignItems: 'center',
   },
   adminToggleText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#dc2626',
+    fontWeight: '800',
     letterSpacing: 0.3,
+  },
+  adminBanner: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  adminBannerText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

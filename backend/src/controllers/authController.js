@@ -1,7 +1,9 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const asyncHandler = require('../utils/asyncHandler');
+const sendEmail = require('../utils/sendEmail');
 
 function cleanUser(user) {
   return {
@@ -21,6 +23,7 @@ function cleanUser(user) {
     libraryAddress: user.libraryAddress,
     profileImage: user.profileImage,
     location: user.location,
+    recoveryHint: user.recoveryHint,
     latitude: user.latitude,
     longitude: user.longitude,
     status: user.status,
@@ -50,7 +53,8 @@ const register = asyncHandler(async (req, res) => {
     location,
     latitude,
     longitude,
-    profileImage
+    profileImage,
+    recoveryHint
   } = req.body;
 
   if (!email || !password || !role) {
@@ -88,6 +92,7 @@ const register = asyncHandler(async (req, res) => {
     latitude: latitude || 40.7128,
     longitude: longitude || -74.0060,
     profileImage: profileImage || '',
+    recoveryHint: recoveryHint || '',
     approvalStatus: approvalStatus
   });
 
@@ -150,14 +155,120 @@ const login = asyncHandler(async (req, res) => {
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
   const user = await User.findOne({ email: email ? email.toLowerCase() : '' });
+
   if (!user) {
     res.status(404);
     throw new Error('No user found with this email address.');
   }
+
+  // Get reset token
+  const resetToken = user.getResetPasswordToken();
+
+  await user.save({ validateBeforeSave: false });
+
+  // Create reset url
+  // For React Native, it might be better to send a 6-digit code or a link that opens the app
+  // For now, let's assume a web-based reset link or a code.
+  // Using a link for now.
+  const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
+
+  const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+
+  try {
+    const result = await sendEmail({
+      email: user.email,
+      subject: 'Password reset token',
+      message
+    });
+
+    if (result && !result.sent) {
+      res.json({
+        message: 'Dev Mode: Reset link printed in backend console. Set EMAIL_PASS in backend/.env to send real emails to Gmail.',
+        resetUrl: result.resetUrl
+      });
+    } else {
+      res.json({
+        message: 'Password reset instructions have been sent to your email.'
+      });
+    }
+  } catch (err) {
+    console.log(err);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save({ validateBeforeSave: false });
+
+    res.status(500);
+    throw new Error(err.message || 'Email could not be sent');
+  }
+});
+
+// @desc Reset Password
+// @route PUT /api/auth/resetpassword/:resettoken
+const resetPassword = asyncHandler(async (req, res) => {
+  // Get hashed token
+  const resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(req.params.resettoken)
+    .digest('hex');
+
+  const user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error('Invalid or expired token');
+  }
+
+  // Set new password
+  user.password = await bcrypt.hash(req.body.password, 10);
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+
+  await user.save();
+
   res.json({
-    message: 'Password reset instructions have been sent to your email.'
+    message: 'Password reset successful',
+    token: generateToken(user._id, user.role),
+    user: cleanUser(user)
   });
 });
+
+// @desc Reset Password with Hint
+// @route POST /api/auth/reset-with-hint
+const resetWithHint = asyncHandler(async (req, res) => {
+  const { email, recoveryHint, newPassword } = req.body;
+
+  if (!email || !recoveryHint || !newPassword) {
+    res.status(400);
+    throw new Error('Email, recovery hint, and new password are required.');
+  }
+
+  const user = await User.findOne({ email: email.toLowerCase() });
+
+  if (!user) {
+    res.status(404);
+    throw new Error('No user found with this email address.');
+  }
+
+  if (user.recoveryHint !== recoveryHint) {
+    res.status(400);
+    throw new Error('Incorrect recovery hint.');
+  }
+
+  // Set new password
+  user.password = await bcrypt.hash(newPassword, 10);
+  await user.save();
+
+  res.json({
+    message: 'Password reset successful!',
+    token: generateToken(user._id, user.role),
+    user: cleanUser(user)
+  });
+});
+
 
 // @desc Get current profile
 // @route GET /api/auth/profile
@@ -186,6 +297,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   user.libraryName = req.body.libraryName || user.libraryName;
   user.libraryAddress = req.body.libraryAddress || user.libraryAddress;
   user.location = req.body.location || user.location;
+  user.recoveryHint = req.body.recoveryHint || user.recoveryHint;
   if (req.body.latitude) user.latitude = req.body.latitude;
   if (req.body.longitude) user.longitude = req.body.longitude;
   if (req.body.profileImage) user.profileImage = req.body.profileImage;
@@ -202,6 +314,8 @@ module.exports = {
   register,
   login,
   forgotPassword,
+  resetPassword,
+  resetWithHint,
   getProfile,
   updateProfile
 };

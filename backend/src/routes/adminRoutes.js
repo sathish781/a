@@ -9,7 +9,9 @@ const {
   manageShopApproval,
   manageLibraryApproval,
   getAllBooks,
-  adminDeleteBook
+  adminDeleteBook,
+  sendGlobalAnnouncement,
+  checkLibraryOverdue
 } = require('../controllers/adminController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -32,5 +34,7 @@ router.patch('/libraries/:id/:action', manageLibraryApproval);
 
 router.get('/books', getAllBooks);
 router.delete('/books/:id', adminDeleteBook);
+router.post('/announcement', sendGlobalAnnouncement);
+router.post('/check-overdue', checkLibraryOverdue);
 
 module.exports = router;

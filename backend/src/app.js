@@ -22,6 +22,12 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const googleBooksRoutes = require('./routes/googleBooksRoutes');
 const mapsRoutes = require('./routes/mapsRoutes');
+const statsRoutes = require('./routes/statsRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const libraryRequestRoutes = require('./routes/libraryRequestRoutes');
+const shopRequestRoutes = require('./routes/shopRequestRoutes');
 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
@@ -34,20 +40,26 @@ app.use(helmet({
 
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting - 200 requests per 15 minutes per IP
+// Rate limiting - increased for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 2000, // Increased to 2000
   message: { message: 'Too many requests from this IP, please try again later.' }
 });
 app.use('/api/', limiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request Logger
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // Static file serving for local uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -79,6 +91,12 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/google-books', googleBooksRoutes);
 app.use('/api/maps', mapsRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/library-requests', libraryRequestRoutes);
+app.use('/api/shop-requests', shopRequestRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Error Middleware
 app.use(notFound);

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Text,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   View,
   TouchableOpacity,
@@ -11,16 +10,20 @@ import * as ImagePicker from 'expo-image-picker';
 
 import NeonAuthScreen, { NeonInput, NeonButton } from '../components/NeonAuthScreen';
 import { useAuth } from '../context/AuthContext';
+import { useThemeMode } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import api from '../api/client';
 
 const ROLES = [
   { id: 'student', label: 'Student', icon: '🎓' },
-  { id: 'shop_owner', label: 'Shop Owner', icon: '🏪' },
+  { id: 'shop', label: 'Shop Owner', icon: '🏪' },
   { id: 'library', label: 'Librarian', icon: '📚' },
 ];
 
 export default function RegisterScreen({ route, navigation }) {
   const { register } = useAuth();
+  const { theme } = useThemeMode();
+  const { showToast } = useToast();
 
   const initialRole = route?.params?.role || 'student';
   const [selectedRole, setSelectedRole] = useState(initialRole);
@@ -33,22 +36,19 @@ export default function RegisterScreen({ route, navigation }) {
     password: '',
     phone: '',
     location: '',
-    // Student specific
     name: '',
-    inCollege: '',
+    college: '',
     department: '',
     profileImage: '',
-    // Shop specific
     shopName: '',
-    ownerName: '',
-    address: '',
-    // Library specific
+    shopAddress: '',
     libraryName: '',
-    librarianName: '',
+    libraryAddress: '',
+    recoveryHint: '',
   });
 
   function setValue(key, value) {
-    setForm({ ...form, [key]: value });
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   const pickImage = async () => {
@@ -79,10 +79,9 @@ export default function RegisterScreen({ route, navigation }) {
       });
 
       setValue('profileImage', response.data.imageUrl);
-      Alert.alert('Success', 'Profile photo uploaded!');
+      showToast('Profile photo uploaded! 📷', 'success');
     } catch (error) {
-      console.log('Upload error', error);
-      Alert.alert('Upload Failed', 'Could not upload image. Check backend connection.');
+      showToast('Could not upload image.', 'error');
     } finally {
       setUploading(false);
     }
@@ -91,22 +90,29 @@ export default function RegisterScreen({ route, navigation }) {
   async function handleRegister() {
     try {
       if (!form.email || !form.password) {
-        Alert.alert('Missing Details', 'Email and password are required');
+        showToast('Email and password are required.', 'error');
+        return;
+      }
+      const trimmedEmail = form.email.trim().toLowerCase();
+      if (!trimmedEmail.includes('@')) {
+        showToast('Please enter a valid email address.', 'error');
         return;
       }
       setLoading(true);
       await register({
         ...form,
-        name: form.name || form.username,
-        role: selectedRole.trim().toLowerCase(),
-        email: form.email.trim(),
+        name: form.name || form.username || (selectedRole === 'shop' ? form.shopName : selectedRole === 'library' ? form.libraryName : 'New User'),
+        role: selectedRole,
+        email: trimmedEmail,
       });
-      Alert.alert('Success', 'Account created successfully!');
+
+      if (selectedRole === 'shop' || selectedRole === 'library') {
+        showToast('Account submitted for Admin approval! ⏳', 'info', 4000);
+      } else {
+        showToast('Account created successfully! 🎉', 'success');
+      }
     } catch (error) {
-      Alert.alert(
-        'Registration Failed',
-        error.response?.data?.message || 'Backend not connected. Please check backend server.'
-      );
+      showToast(error.response?.data?.message || 'Registration failed. Check connection.', 'error');
     } finally {
       setLoading(false);
     }
@@ -121,7 +127,6 @@ export default function RegisterScreen({ route, navigation }) {
       footerLinkText="Log in"
       onFooterLinkPress={() => navigation.navigate('Login', { role: selectedRole })}
     >
-      {/* Role Selection Chips */}
       <Text style={styles.roleHeaderLabel}>Select Your Role</Text>
       <View style={styles.roleRow}>
         {ROLES.map((role) => {
@@ -133,11 +138,25 @@ export default function RegisterScreen({ route, navigation }) {
               onPress={() => setSelectedRole(role.id)}
               style={[
                 styles.roleChip,
-                isActive && styles.roleChipActive,
+                {
+                  backgroundColor: theme.backgroundOne,
+                  borderColor: isActive ? theme.primary : theme.glassBorder,
+                },
+                isActive && {
+                  shadowColor: theme.primary,
+                  shadowOpacity: 0.35,
+                  shadowRadius: 8,
+                  elevation: 4,
+                },
               ]}
             >
               <Text style={styles.roleChipIcon}>{role.icon}</Text>
-              <Text style={[styles.roleChipText, isActive && styles.roleChipTextActive]}>
+              <Text
+                style={[
+                  styles.roleChipText,
+                  { color: isActive ? theme.primary : theme.muted, fontWeight: isActive ? '800' : '600' },
+                ]}
+              >
                 {role.label}
               </Text>
             </TouchableOpacity>
@@ -145,11 +164,11 @@ export default function RegisterScreen({ route, navigation }) {
         })}
       </View>
 
-      {/* Primary Common Fields (Matches Screenshot) */}
       <NeonInput
         label="Username / Full Name"
         placeholder="Choose a username"
         value={form.username || form.name}
+        icon="👤"
         onChangeText={(v) => {
           setValue('username', v);
           setValue('name', v);
@@ -158,18 +177,20 @@ export default function RegisterScreen({ route, navigation }) {
 
       <NeonInput
         label="Email address"
-        placeholder="Email address"
+        placeholder="you@university.edu"
         value={form.email}
         autoCapitalize="none"
         keyboardType="email-address"
+        icon="✉️"
         onChangeText={(v) => setValue('email', v)}
       />
 
       <NeonInput
         label="Mobile number"
-        placeholder="Mobile number (+123...)"
+        placeholder="e.g. +91 9876543210"
         value={form.phone}
         keyboardType="phone-pad"
+        icon="📱"
         onChangeText={(v) => setValue('phone', v)}
       />
 
@@ -178,58 +199,67 @@ export default function RegisterScreen({ route, navigation }) {
         placeholder="Create a password"
         value={form.password}
         secureTextEntry
+        icon="🔑"
         onChangeText={(v) => setValue('password', v)}
       />
 
-      {/* Role-Specific Fields */}
+      <NeonInput
+        label="Recovery Hint (for password reset)"
+        placeholder="e.g. Your first pet's name"
+        value={form.recoveryHint}
+        icon="💡"
+        onChangeText={(v) => setValue('recoveryHint', v)}
+      />
+
+      {/* Dynamic Role Specific Fields */}
       {selectedRole === 'student' && (
         <>
           <NeonInput
-            label="College Name"
-            placeholder="e.g. Stanford University"
-            value={form.inCollege}
-            onChangeText={(v) => setValue('inCollege', v)}
+            label="College / University Name"
+            placeholder="e.g. National Institute of Tech"
+            value={form.college}
+            icon="🎓"
+            onChangeText={(v) => setValue('college', v)}
           />
           <NeonInput
             label="Department"
-            placeholder="Department (e.g. Computer Science)"
+            placeholder="e.g. Computer Science & Eng"
             value={form.department}
+            icon="🏛️"
             onChangeText={(v) => setValue('department', v)}
           />
           <NeonInput
-            label="Current Location"
-            placeholder="City / Campus Location"
+            label="Current Location / Campus"
+            placeholder="City or Campus Area"
             value={form.location}
+            icon="📍"
             onChangeText={(v) => setValue('location', v)}
           />
         </>
       )}
 
-      {selectedRole === 'shop_owner' && (
+      {selectedRole === 'shop' && (
         <>
           <NeonInput
-            label="Shop Name"
-            placeholder="Campus Bookstore"
+            label="Shop / Store Name"
+            placeholder="Bookstore Name"
             value={form.shopName}
+            icon="🏪"
             onChangeText={(v) => setValue('shopName', v)}
           />
           <NeonInput
             label="Shop Address"
-            placeholder="Full Shop Address"
-            value={form.address}
-            onChangeText={(v) => setValue('address', v)}
+            placeholder="Full Store Address"
+            value={form.shopAddress}
+            icon="🏢"
+            onChangeText={(v) => setValue('shopAddress', v)}
           />
           <NeonInput
-            label="Location"
-            placeholder="Location (City / Area)"
+            label="City / Location"
+            placeholder="City or District"
             value={form.location}
+            icon="📍"
             onChangeText={(v) => setValue('location', v)}
-          />
-          <NeonInput
-            label="Business Description"
-            placeholder="Brief description of shop inventory"
-            value={form.businessDescription || ''}
-            onChangeText={(v) => setValue('businessDescription', v)}
           />
         </>
       )}
@@ -238,41 +268,54 @@ export default function RegisterScreen({ route, navigation }) {
         <>
           <NeonInput
             label="Library Name"
-            placeholder="Central City Library"
+            placeholder="Institutional Library Name"
             value={form.libraryName}
+            icon="📚"
             onChangeText={(v) => setValue('libraryName', v)}
           />
           <NeonInput
             label="Library Address"
-            placeholder="Full Library Address"
-            value={form.address}
-            onChangeText={(v) => setValue('address', v)}
+            placeholder="Campus Building / Address"
+            value={form.libraryAddress}
+            icon="🏛️"
+            onChangeText={(v) => setValue('libraryAddress', v)}
           />
           <NeonInput
-            label="Location"
-            placeholder="Location (City / District)"
+            label="City / District"
+            placeholder="City or District"
             value={form.location}
+            icon="📍"
             onChangeText={(v) => setValue('location', v)}
           />
         </>
       )}
 
-      {/* Profile Image Picker for all roles */}
       <TouchableOpacity
         onPress={pickImage}
-        style={styles.imageUploadBtn}
+        style={[
+          styles.imageUploadBtn,
+          {
+            backgroundColor: theme.backgroundOne,
+            borderColor: form.profileImage ? theme.primary : theme.glassBorder,
+          },
+        ]}
         activeOpacity={0.8}
       >
         {uploading ? (
-          <ActivityIndicator color="#dc2626" />
+          <ActivityIndicator color={theme.primary} />
         ) : (
-          <Text style={[styles.imageUploadText, form.profileImage && styles.imageUploadTextSuccess]}>
-            {form.profileImage ? '✓ Profile Image Uploaded' : '📷 Upload Profile Photo (Optional)'}
+          <Text
+            style={[
+              styles.imageUploadText,
+              { color: theme.muted },
+              form.profileImage && { color: theme.primary, fontWeight: '800' },
+            ]}
+          >
+            {form.profileImage ? '✓ Profile Photo Uploaded' : '📷 Upload Profile Photo (Optional)'}
           </Text>
         )}
       </TouchableOpacity>
 
-      {/* Primary Register Action Button */}
       <NeonButton
         title="CREATE ACCOUNT"
         onPress={handleRegister}
@@ -284,17 +327,17 @@ export default function RegisterScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   roleHeaderLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: '#94a3b8',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   roleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 18,
+    marginBottom: 16,
     gap: 8,
   },
   roleChip: {
@@ -303,19 +346,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: '#090d20',
+    paddingHorizontal: 6,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'rgba(88, 101, 242, 0.2)',
-  },
-  roleChipActive: {
-    borderColor: '#00f0ff',
-    backgroundColor: '#0c122e',
-    shadowColor: '#00f0ff',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   roleChipIcon: {
     fontSize: 15,
@@ -323,31 +356,18 @@ const styles = StyleSheet.create({
   },
   roleChipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  roleChipTextActive: {
-    color: '#00f0ff',
-    fontWeight: '700',
   },
   imageUploadBtn: {
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 240, 255, 0.3)',
     borderStyle: 'dashed',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: 'center',
     marginBottom: 16,
-    backgroundColor: '#090d20',
   },
   imageUploadText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  imageUploadTextSuccess: {
-    color: '#00f0ff',
     fontWeight: '700',
   },
 });

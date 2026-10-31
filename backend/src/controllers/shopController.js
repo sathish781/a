@@ -48,6 +48,7 @@ const addShopBook = asyncHandler(async (req, res) => {
     imageUrl: imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=60',
     owner: req.user._id,
     role: 'shop',
+    sourceType: 'shop',
     location: location || req.user.shopAddress || '',
     latitude: latitude || req.user.latitude || 40.7128,
     longitude: longitude || req.user.longitude || -74.0060,
@@ -123,9 +124,8 @@ const rejectShop = asyncHandler(async (req, res) => {
 });
 
 // @desc  Get all books in current shop owner's inventory
-// @route GET /api/shops/my-inventory
 const getMyInventory = asyncHandler(async (req, res) => {
-  const books = await Book.find({ owner: req.user._id, role: 'shop' }).sort({ createdAt: -1 });
+  const books = await Book.find({ owner: req.user._id }).sort({ createdAt: -1 });
   res.json(books);
 });
 

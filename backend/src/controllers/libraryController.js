@@ -4,6 +4,8 @@ const BorrowHistory = require('../models/BorrowHistory');
 const Reservation = require('../models/Reservation');
 const asyncHandler = require('../utils/asyncHandler');
 
+const bcrypt = require('bcryptjs');
+
 // @desc  Get all approved libraries
 // @route GET /api/libraries
 const getLibraries = asyncHandler(async (req, res) => {
@@ -11,6 +13,43 @@ const getLibraries = asyncHandler(async (req, res) => {
     .select('-password')
     .sort({ createdAt: -1 });
   res.json(libraries);
+});
+
+// @desc  Create a new library (Internal/Admin)
+// @route POST /api/libraries
+const createLibrary = asyncHandler(async (req, res) => {
+  const { name, address, contact } = req.body;
+
+  if (!name || !address) {
+    res.status(400);
+    throw new Error('Please provide library name and address.');
+  }
+
+  // Since User model requires email/password, and this form doesn't provide them
+  // We generate a unique email based on the name
+  const email = `${name.toLowerCase().replace(/\s+/g, '')}_${Date.now()}@library.com`;
+  const hashedPassword = await bcrypt.hash('Library@123', 10);
+
+  const library = await User.create({
+    name: name,
+    email,
+    password: hashedPassword,
+    role: 'library',
+    libraryName: name,
+    libraryAddress: address,
+    phone: contact || '',
+    approvalStatus: 'approved', // Auto-approved for this internal creation tool
+    status: 'active'
+  });
+
+  res.status(201).json({
+    message: 'Library created successfully',
+    library: {
+      _id: library._id,
+      name: library.name,
+      email: library.email
+    }
+  });
 });
 
 // @desc  Get a library by ID with its catalog
@@ -29,14 +68,19 @@ const getLibraryById = asyncHandler(async (req, res) => {
 // @route POST /api/libraries/books
 const addLibraryBook = asyncHandler(async (req, res) => {
   const {
+    libraryId, // Support for admin to add book to specific library
     title, author, isbn, publisher, category, description,
-    condition, imageUrl, location, latitude, longitude
+    condition, imageUrl, location, latitude, longitude,
+    sourceType
   } = req.body;
 
   if (!title) {
     res.status(400);
     throw new Error('Book title is required.');
   }
+
+  // Use provided libraryId or fallback to current user
+  const ownerId = libraryId || req.user._id;
 
   const book = await Book.create({
     title,
@@ -48,8 +92,9 @@ const addLibraryBook = asyncHandler(async (req, res) => {
     condition: condition || 'Good',
     price: 0,
     imageUrl: imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=60',
-    owner: req.user._id,
+    owner: ownerId,
     role: 'library',
+    sourceType: sourceType || 'library',
     location: location || req.user.libraryAddress || '',
     latitude: latitude || req.user.latitude || 40.7128,
     longitude: longitude || req.user.longitude || -74.0060,
@@ -143,6 +188,7 @@ const rejectLibrary = asyncHandler(async (req, res) => {
 module.exports = {
   getLibraries,
   getLibraryById,
+  createLibrary,
   addLibraryBook,
   updateLibraryBook,
   deleteLibraryBook,

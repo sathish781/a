@@ -1,150 +1,220 @@
-import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet, FlatList, Alert, ActivityIndicator, View, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  Animated,
+} from 'react-native';
 
 import GlassScreen from '../components/GlassScreen';
 import GlassCard from '../components/GlassCard';
-import AppTextInput from '../components/AppTextInput';
-import AppButton from '../components/AppButton';
-import BookListItem from '../components/BookListItem';
-import EmptyState from '../components/EmptyState';
-import api from '../api/client';
+import { ListSkeleton } from '../components/SkeletonLoader';
+import { useToast } from '../context/ToastContext';
 import { useThemeMode } from '../context/ThemeContext';
+import api from '../api/client';
 
 export default function SearchScreen({ navigation }) {
   const { theme } = useThemeMode();
-  const [q, setQ] = useState('');
-  const [filterType, setFilterType] = useState('all'); // all, google, isbn, college, library, shop
-  const [books, setBooks] = useState([]);
-  const [googleBooks, setGoogleBooks] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
 
-  async function searchBooks() {
-    if (!q.trim() && filterType === 'google') return;
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  // Animations
+  const searchBarScale = useRef(new Animated.Value(1)).current;
+
+  async function handleSearch() {
+    if (!query.trim()) {
+      showToast('Please enter a search keyword.', 'info');
+      return;
+    }
+    setLoading(true);
+    setSearched(true);
     try {
-      setLoading(true);
-      if (filterType === 'google') {
-        const res = await api.get(`/google-books?title=${encodeURIComponent(q)}`);
-        setGoogleBooks(res.data.books || []);
-      } else {
-        const res = await api.get('/books', {
-          params: { q, type: filterType }
-        });
-        setBooks(res.data || []);
-      }
+      const res = await api.get(`/search/books?q=${encodeURIComponent(query)}`);
+      setResults(res.data.results || []);
     } catch (error) {
-      console.log('Search error:', error);
-      Alert.alert('Search Notice', 'Could not complete search. Displaying matching local records.');
+      showToast('Search request failed. Check server connection.', 'error');
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    searchBooks();
-  }, [filterType]);
+  const renderSourceBadge = (role) => {
+    let bg = '#3b82f620';
+    let text = '#3b82f6';
+    let label = '🏛 LIBRARY';
+
+    if (role === 'shop') {
+      bg = '#f9731620';
+      text = '#f97316';
+      label = '🏪 BOOK SHOP';
+    } else if (role === 'student' || role === 'user') {
+      bg = '#10b98120';
+      text = '#10b981';
+      label = '👤 STUDENT PEER';
+    }
+
+    return (
+      <View style={[styles.sourceBadge, { backgroundColor: bg }]}>
+        <Text style={[styles.sourceBadgeText, { color: text }]}>{label}</Text>
+      </View>
+    );
+  };
 
   return (
     <GlassScreen>
       <View style={styles.container}>
-        <Text style={[styles.title, { color: theme.text }]}>Smart Book Search</Text>
-        <Text style={[styles.subtitle, { color: theme.muted }]}>
-          Search by title, author, ISBN, category, college, library, shop, or location.
-        </Text>
+        <Text style={[styles.title, { color: theme.text }]}>Smart Search</Text>
 
-        <GlassCard>
-          <AppTextInput
-            placeholder={filterType === 'google' ? "Enter title or ISBN for Google Books..." : "Search books, libraries, shops..."}
-            value={q}
-            onChangeText={setQ}
+        {/* Search Bar Input */}
+        <Animated.View
+          style={[
+            styles.searchBox,
+            {
+              borderColor: theme.glassBorder,
+              backgroundColor: theme.tabBg,
+              transform: [{ scale: searchBarScale }],
+            },
+          ]}
+        >
+          <Text style={styles.searchIcon}>🔎</Text>
+          <TextInput
+            style={[styles.input, { color: theme.text }]}
+            placeholder="Search books, authors, ISBN..."
+            placeholderTextColor={theme.muted}
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
           />
 
-          {/* Filter Chips */}
-          <View style={styles.chipRow}>
-            {[
-              { id: 'all', label: 'All' },
-              { id: 'google', label: '🌐 Google Books' },
-              { id: 'isbn', label: 'ISBN' },
-              { id: 'college', label: 'College' },
-              { id: 'library', label: 'Library' },
-              { id: 'shop', label: 'Shop' },
-            ].map((chip) => (
-              <TouchableOpacity
-                key={chip.id}
-                onPress={() => setFilterType(chip.id)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: filterType === chip.id ? theme.primary : (theme.mode === 'light' ? '#f1f5f9' : '#0f172a'),
-                    borderColor: filterType === chip.id ? theme.primary : theme.glassBorder,
-                  },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: filterType === chip.id ? '#ffffff' : theme.text }]}>
-                  {chip.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          {query.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setQuery('')}
+              style={styles.clearBtn}
+            >
+              <Text style={{ color: theme.muted, fontSize: 16 }}>✕</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPressIn={() => Animated.spring(searchBarScale, { toValue: 0.98, useNativeDriver: true }).start()}
+            onPressOut={() => Animated.spring(searchBarScale, { toValue: 1, friction: 6, useNativeDriver: true }).start()}
+            onPress={handleSearch}
+            style={[styles.searchBtn, { backgroundColor: theme.primary }]}
+          >
+            <Text style={styles.btnText}>FIND</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Skeleton Loader during fetch */}
+        {loading ? (
+          <View style={{ marginTop: 10 }}>
+            <ListSkeleton count={4} />
           </View>
-
-          <AppButton title="Search Books" onPress={searchBooks} />
-        </GlassCard>
-
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color={theme.primary}
-            style={{ marginTop: 20 }}
-          />
-        )}
-
-        {filterType === 'google' ? (
-          <FlatList
-            data={googleBooks}
-            keyExtractor={(item, idx) => item.isbn || idx.toString()}
-            contentContainerStyle={{ paddingBottom: 110 }}
-            ListEmptyComponent={
-              !loading ? (
-                <EmptyState
-                  title="No Google Books found"
-                  message="Enter a title or ISBN to auto-fetch metadata from Google Books API."
-                />
-              ) : null
-            }
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('SellBook', { googleBook: item })}
-                activeOpacity={0.85}
-              >
-                <GlassCard style={styles.googleCard}>
-                  <Text style={[styles.gbTitle, { color: theme.text }]}>{item.title}</Text>
-                  <Text style={[styles.gbAuthor, { color: theme.muted }]}>By: {item.author} | Publisher: {item.publisher || 'N/A'}</Text>
-                  <Text style={[styles.gbDesc, { color: theme.muted }]} numberOfLines={2}>{item.description}</Text>
-                  <View style={styles.gbFooter}>
-                    <Text style={[styles.gbIsbn, { color: theme.primary }]}>ISBN: {item.isbn || 'N/A'}</Text>
-                    <Text style={[styles.gbAction, { color: theme.primary }]}>Use to List Book →</Text>
-                  </View>
-                </GlassCard>
-              </TouchableOpacity>
-            )}
-          />
         ) : (
           <FlatList
-            data={books}
-            keyExtractor={(item) => item._id || Math.random().toString()}
+            data={results}
+            keyExtractor={(item) => item._id}
             contentContainerStyle={{ paddingBottom: 110 }}
+            showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              !loading ? (
-                <EmptyState
-                  title="No books found"
-                  message="Try searching another book title, author, or location."
-                />
-              ) : null
+              searched ? (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyEmoji}>🔎</Text>
+                  <Text style={[styles.emptyTitle, { color: theme.text }]}>No Books Found</Text>
+                  <Text style={[styles.emptySub, { color: theme.muted }]}>
+                    Try searching with broader terms or keywords.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyEmoji}>📚</Text>
+                  <Text style={[styles.emptyTitle, { color: theme.text }]}>Unified Campus Search</Text>
+                  <Text style={[styles.emptySub, { color: theme.muted }]}>
+                    Search across institutional libraries, local bookshops, and student peer listings.
+                  </Text>
+                </View>
+              )
             }
             renderItem={({ item }) => (
-              <BookListItem
-                item={item}
-                onPress={() => navigation.navigate('BookDetails', { bookId: item._id })}
-              />
+              <GlassCard style={styles.bookCard}>
+                <View style={styles.cardHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.bookTitle, { color: theme.text }]} numberOfLines={2}>
+                      📚 {item.title}
+                    </Text>
+                    <Text style={[styles.bookAuthor, { color: theme.muted }]}>
+                      Author: {item.author || 'Unknown Author'}
+                    </Text>
+                  </View>
+                  {renderSourceBadge(item.owner?.role)}
+                </View>
+
+                <View style={[styles.sourceSection, { borderTopColor: theme.glassBorder }]}>
+                  <Text style={[styles.sourceName, { color: theme.text }]}>
+                    {item.owner?.libraryName || item.owner?.shopName || item.owner?.name || 'Verified Source'}
+                  </Text>
+
+                  {item.price ? (
+                    <Text style={[styles.price, { color: theme.primary }]}>Price: ₹{item.price}</Text>
+                  ) : null}
+
+                  <Text style={[styles.location, { color: theme.muted }]}>
+                    📍 {item.owner?.shopAddress || item.owner?.libraryAddress || item.owner?.location || item.location || 'Campus Region'}
+                  </Text>
+
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      style={[styles.requestBtn, { backgroundColor: theme.primary }]}
+                      onPress={() => {
+                        if (!item.owner || typeof item.owner === 'string') {
+                          showToast('Source information is incomplete for this book.', 'info');
+                          return;
+                        }
+                        if (item.owner.role === 'library') {
+                          navigation.navigate('LibraryRequest', { book: item });
+                        } else if (item.owner.role === 'shop') {
+                          navigation.navigate('ShopRequest', { book: item });
+                        } else {
+                          if (item.listingType === 'exchange') {
+                            navigation.navigate('InitiateExchange', { requestedBook: item });
+                          } else {
+                            navigation.navigate('BookDetails', { bookId: item._id });
+                          }
+                        }
+                      }}
+                    >
+                      <Text style={styles.requestBtnText}>
+                        {item.listingType === 'exchange' ? 'REQUEST EXCHANGE →' : 'REQUEST BOOK →'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={[styles.chatBtn, { borderColor: theme.primary }]}
+                      onPress={() => {
+                        if (!item.owner || typeof item.owner === 'string') return;
+                        navigation.navigate('ChatDetail', {
+                          userId: item.owner._id,
+                          userName: item.owner.shopName || item.owner.libraryName || item.owner.name,
+                          bookId: item._id,
+                        });
+                      }}
+                    >
+                      <Text style={[styles.chatBtnText, { color: theme.primary }]}>💬 CHAT</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </GlassCard>
             )}
           />
         )}
@@ -154,65 +224,40 @@ export default function SearchScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 18
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    marginTop: 8
-  },
-  subtitle: {
-    marginTop: 6,
-    marginBottom: 12,
-    lineHeight: 20
-  },
-  chipRow: {
+  container: { flex: 1, padding: 18 },
+  title: { fontSize: 26, fontWeight: '900', marginBottom: 16, letterSpacing: -0.5 },
+  searchBox: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginVertical: 10,
-  },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  googleCard: {
-    padding: 14,
-    marginVertical: 6,
-  },
-  gbTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  gbAuthor: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  gbDesc: {
-    fontSize: 12,
-    marginTop: 6,
-    lineHeight: 16,
-  },
-  gbFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 18,
+    height: 54,
+    paddingLeft: 14,
   },
-  gbIsbn: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  gbAction: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
+  searchIcon: { fontSize: 18, marginRight: 8 },
+  input: { flex: 1, paddingVertical: 0, height: '100%', fontSize: 14, fontWeight: '600' },
+  clearBtn: { padding: 8, marginRight: 4 },
+  searchBtn: { width: 75, height: '100%', justifyContent: 'center', alignItems: 'center' },
+  btnText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+  bookCard: { padding: 18, marginVertical: 8, borderRadius: 22 },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  bookTitle: { fontSize: 17, fontWeight: '900', letterSpacing: -0.3 },
+  bookAuthor: { fontSize: 13, marginTop: 4, fontWeight: '500' },
+  sourceBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginLeft: 10 },
+  sourceBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  sourceSection: { marginTop: 14, paddingTop: 12, borderTopWidth: 1.5 },
+  sourceName: { fontSize: 15, fontWeight: '800' },
+  price: { fontSize: 16, fontWeight: '900', marginTop: 4 },
+  location: { fontSize: 12, marginTop: 4, fontWeight: '500' },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  requestBtn: { flex: 1, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  requestBtnText: { color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  chatBtn: { width: 90, height: 46, borderRadius: 14, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
+  chatBtnText: { fontSize: 12, fontWeight: '900' },
+  emptyBox: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 20 },
+  emptyEmoji: { fontSize: 50, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: '900' },
+  emptySub: { fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18, fontWeight: '500' },
 });

@@ -13,9 +13,9 @@ export default function GlassCard({ children, style }) {
       style={[
         styles.card,
         {
-          backgroundColor: isLight ? '#ffffff' : 'rgba(16, 17, 30, 0.85)',
-          borderColor: isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(99, 102, 241, 0.28)',
-          shadowColor: isLight ? '#0f172a' : '#6366f1',
+          backgroundColor: theme.glass,
+          borderColor: theme.glassBorder,
+          shadowColor: isLight ? theme.darkText : theme.primary,
           shadowOpacity: isLight ? 0.08 : 0.28,
         },
         style,

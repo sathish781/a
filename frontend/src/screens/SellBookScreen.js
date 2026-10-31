@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Text, StyleSheet, ScrollView, Alert, Image, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Text, StyleSheet, ScrollView, Alert, Image, View, Modal, TouchableOpacity } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import GlassScreen from '../components/GlassScreen';
 import GlassCard from '../components/GlassCard';
@@ -14,10 +15,15 @@ export default function SellBookScreen({ route, navigation }) {
   const { theme } = useThemeMode();
   const googleBookParam = route?.params?.googleBook;
   const isDonationParam = route?.params?.isDonation || route?.params?.listingType === 'donate';
+  const isExchangeParam = route?.params?.listingType === 'exchange';
 
   const [image, setImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [fetchingGb, setFetchingGb] = useState(false);
+
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [scanned, setScanned] = useState(false);
 
   const [form, setForm] = useState({
     title: googleBookParam?.title || '',
@@ -30,9 +36,9 @@ export default function SellBookScreen({ route, navigation }) {
     semester: '',
     examType: 'Academic',
     description: googleBookParam?.description || '',
-    price: '0',
+    price: isDonationParam || isExchangeParam ? '0' : '0',
     condition: 'Good',
-    listingType: isDonationParam ? 'donate' : 'sell',
+    listingType: isDonationParam ? 'donate' : isExchangeParam ? 'exchange' : 'sell',
     imageUrl: googleBookParam?.cover || '',
     publishedDate: googleBookParam?.publishedDate || '',
     previewLink: googleBookParam?.previewLink || '',
@@ -45,9 +51,9 @@ export default function SellBookScreen({ route, navigation }) {
     });
   }
 
-  async function fetchGoogleBooksData() {
-    const query = form.isbn || form.title;
-    if (!query.trim()) {
+  async function fetchGoogleBooksData(isbnQuery = null) {
+    const query = isbnQuery || form.isbn || form.title;
+    if (!query || !query.trim()) {
       Alert.alert('Google Books Lookup', 'Please enter a Book Title or ISBN to search.');
       return;
     }
@@ -69,7 +75,11 @@ export default function SellBookScreen({ route, navigation }) {
           publishedDate: gb.publishedDate || prev.publishedDate,
           previewLink: gb.previewLink || prev.previewLink,
         }));
-        Alert.alert('Auto-filled!', `Found "${gb.title}" by ${gb.author}. Review and edit fields before saving.`);
+        if (isbnQuery) {
+          Alert.alert('Scan Success!', `Found details for "${gb.title}".`);
+        } else {
+          Alert.alert('Auto-filled!', `Found "${gb.title}" by ${gb.author}. Review and edit fields before saving.`);
+        }
       } else {
         Alert.alert('No Match', 'No book details found on Google Books API for this title/ISBN.');
       }
@@ -79,6 +89,26 @@ export default function SellBookScreen({ route, navigation }) {
     } finally {
       setFetchingGb(false);
     }
+  }
+
+  const handleBarCodeScanned = ({ type, data }) => {
+    setScanned(true);
+    setScannerVisible(false);
+    // ISBNs are usually EAN_13
+    setValue('isbn', data);
+    fetchGoogleBooksData(data);
+  };
+
+  async function openScanner() {
+    if (!permission || !permission.granted) {
+      const { granted } = await requestPermission();
+      if (!granted) {
+        Alert.alert('Permission needed', 'Allow camera access to scan barcodes.');
+        return;
+      }
+    }
+    setScanned(false);
+    setScannerVisible(true);
   }
 
   async function openCamera() {
@@ -173,14 +203,43 @@ export default function SellBookScreen({ route, navigation }) {
         {/* Auto Fetch Card */}
         <GlassCard style={styles.card}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>🌐 Auto-Fetch Metadata</Text>
-          <Text style={[styles.helpText, { color: theme.muted }]}>Enter title or ISBN and tap below to auto-populate from Google Books API.</Text>
-          <AppButton
-            title={fetchingGb ? 'FETCHING DATA...' : 'AUTO-FETCH FROM GOOGLE BOOKS'}
-            onPress={fetchGoogleBooksData}
-            variant="dark"
-            style={{ marginTop: 8 }}
-          />
+          <Text style={[styles.helpText, { color: theme.muted }]}>Enter title, ISBN or use the barcode scanner.</Text>
+
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+            <AppButton
+              title={fetchingGb ? '...' : 'AUTO-FILL'}
+              onPress={() => fetchGoogleBooksData()}
+              variant="dark"
+              style={{ flex: 1 }}
+            />
+            <AppButton
+              title="📷 SCAN BARCODE"
+              onPress={openScanner}
+              variant="gold"
+              style={{ flex: 1.5 }}
+            />
+          </View>
         </GlassCard>
+
+        {/* Barcode Scanner Modal */}
+        <Modal visible={scannerVisible} animationType="slide">
+          <View style={styles.scannerContainer}>
+            <CameraView
+              style={StyleSheet.absoluteFillObject}
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'],
+              }}
+            />
+            <View style={styles.scannerOverlay}>
+              <View style={styles.scannerTarget} />
+              <Text style={styles.scannerText}>Align ISBN barcode inside the box</Text>
+              <TouchableOpacity style={styles.closeScanner} onPress={() => setScannerVisible(false)}>
+                <Text style={styles.closeScannerText}>CANCEL SCAN</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* Book Photo Card */}
         <GlassCard style={styles.card}>
@@ -347,5 +406,41 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 2,
     fontWeight: '500',
+  },
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  scannerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scannerTarget: {
+    width: 280,
+    height: 180,
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  scannerText: {
+    color: '#fff',
+    marginTop: 20,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  closeScanner: {
+    position: 'absolute',
+    bottom: 50,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  closeScannerText: {
+    color: '#fff',
+    fontWeight: '900',
   },
 });
