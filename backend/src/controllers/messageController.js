@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
@@ -12,6 +13,16 @@ const sendMessage = asyncHandler(async (req, res) => {
     throw new Error('Receiver ID is required');
   }
 
+  if (!mongoose.Types.ObjectId.isValid(receiverId)) {
+    res.status(400);
+    throw new Error('Invalid receiver ID format');
+  }
+
+  if (receiverId.toString() === req.user._id.toString()) {
+    res.status(400);
+    throw new Error('You cannot send a message to yourself');
+  }
+
   if (!content && !fileUrl) {
     res.status(400);
     throw new Error('Message content or file is required');
@@ -20,7 +31,7 @@ const sendMessage = asyncHandler(async (req, res) => {
   const newMessage = await Message.create({
     sender: req.user._id,
     receiver: receiverId,
-    book: bookId || undefined,
+    book: (bookId && mongoose.Types.ObjectId.isValid(bookId)) ? bookId : undefined,
     content: content || '',
     messageType: messageType || 'text',
     fileUrl: fileUrl || ''

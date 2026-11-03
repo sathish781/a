@@ -1,0 +1,12 @@
+{
+  "name": "bookconnect-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BookConnect Root Configuration for Render Deployment",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "build": "cd backend && npm install",
+    "dev": "cd backend && npm run dev"
+  }
+}
