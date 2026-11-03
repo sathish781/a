@@ -13,7 +13,7 @@ let ImagePicker = null;
 let Audio = null;
 
 export default function ChatDetailScreen({ route, navigation }) {
-  const { userId, userName, bookId } = route.params;
+  const { userId, userName, bookId } = route.params || {};
   const { theme } = useThemeMode();
   const { user } = useAuth();
 
@@ -39,12 +39,17 @@ export default function ChatDetailScreen({ route, navigation }) {
       }
     }
     setupModules();
-    loadConversation();
-    const interval = setInterval(loadConversation, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (userId) {
+      loadConversation();
+      const interval = setInterval(loadConversation, 5000);
+      return () => clearInterval(interval);
+    } else {
+      setLoading(false);
+    }
+  }, [userId]);
 
   async function loadConversation() {
+    if (!userId) return;
     try {
       const res = await api.get(`/messages/${userId}`);
       setMessages(res.data);
@@ -57,6 +62,14 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   async function handleSend(content = '', messageType = 'text', fileUrl = '') {
     if (!content.trim() && !fileUrl) return;
+
+    if (!userId) {
+      return Alert.alert('Error', 'Invalid recipient. Cannot send message.');
+    }
+
+    if (user && userId === user._id) {
+      return Alert.alert('Notice', 'You cannot send a message to yourself.');
+    }
 
     try {
       const payload = {
@@ -77,7 +90,7 @@ export default function ChatDetailScreen({ route, navigation }) {
       setTimeout(() => flatListRef.current?.scrollToEnd(), 200);
     } catch (error) {
       console.log('Send error:', error.response?.data || error.message);
-      Alert.alert('Error', 'Failed to send message');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to send message');
     }
   }
 

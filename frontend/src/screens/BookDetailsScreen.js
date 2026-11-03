@@ -175,8 +175,8 @@ export default function BookDetailsScreen({ route, navigation }) {
                 <TouchableOpacity
                   style={[styles.chatShopBtn, { borderColor: theme.primary }]}
                   onPress={() => navigation.navigate('ChatDetail', {
-                    userId: item.shop?._id,
-                    userName: item.shop?.name || item.shop?.shopName,
+                    userId: item.owner?._id || item.shop?._id,
+                    userName: item.owner?.shopName || item.owner?.name || item.shop?.name || item.shop?.shopName,
                     bookId: data.book?._id,
                   })}
                 >
@@ -194,7 +194,7 @@ export default function BookDetailsScreen({ route, navigation }) {
           data.students.map((item) => (
             <GlassCard key={item._id}>
               <View style={styles.cardHeader}>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>{item.seller?.name}</Text>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>{item.owner?.name || item.seller?.name}</Text>
                 {item.listingType === 'exchange' && (
                   <View style={styles.exchangeBadge}>
                     <Text style={styles.exchangeBadgeText}>SWAP AVAILABLE</Text>
@@ -210,13 +210,13 @@ export default function BookDetailsScreen({ route, navigation }) {
                 </View>
               )}
 
-              {item.seller?._id !== user?._id && (
+              {(item.owner?._id || item.seller?._id) !== user?._id && (
                 <View style={{ marginTop: 12, gap: 8 }}>
                   {item.listingType === 'exchange' && (
                     <AppButton
                       title="🤝 REQUEST EXCHANGE"
                       variant="gold"
-                      onPress={() => navigation.navigate('InitiateExchange', { requestedBook: { ...data.book, owner: item.seller, _id: item._id } })}
+                      onPress={() => navigation.navigate('InitiateExchange', { requestedBook: { ...data.book, owner: item.owner || item.seller, _id: item._id } })}
                     />
                   )}
                   {item.listingType === 'sell' && (
@@ -236,8 +236,8 @@ export default function BookDetailsScreen({ route, navigation }) {
                     title="💬 CHAT WITH OWNER"
                     variant="dark"
                     onPress={() => navigation.navigate('ChatDetail', {
-                      userId: item.seller?._id,
-                      userName: item.seller?.name,
+                      userId: item.owner?._id || item.seller?._id,
+                      userName: item.owner?.name || item.seller?.name,
                       bookId: data.book?._id,
                     })}
                   />
